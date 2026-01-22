@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # PostgreSQL データベース
+  postgres:
+    image: postgres:15-alpine
+    container_name: oriental_postgres
+    environment:
+      POSTGRES_USER: oriental_user
+      POSTGRES_PASSWORD: oriental_pass
+      POSTGRES_DB: oriental_db
+      TZ: Asia/Tokyo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oriental_user -d oriental_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oriental_network
+
+  # Redis キャッシュ・セッション管理
+  redis:
+    image: redis:7-alpine
+    container_name: oriental_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass oriental_redis_pass
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oriental_network
+
+  # FastAPI バックエンド
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oriental_backend
+    environment:
+      DATABASE_URL: postgresql://oriental_user:oriental_pass@postgres:5432/oriental_db
+      REDIS_URL: redis://:oriental_redis_pass@redis:6379/0
+      SECRET_KEY: your-secret-key-change-in-production
+      ENVIRONMENT: development
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - oriental_network
+
+  # Next.js フロントエンド
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: oriental_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_LINE_LIFF_ID: your-liff-id-here
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    command: npm run dev
+    networks:
+      - oriental_network
+
+  # pgAdmin (データベース管理ツール)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: oriental_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@orientalsynergy.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - oriental_network
+    profiles:
+      - tools
+
+  # Mailhog (メール送信テスト用)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: oriental_mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - oriental_network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  oriental_network:
+    driver: bridge
+

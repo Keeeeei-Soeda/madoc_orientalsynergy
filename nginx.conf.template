@@ -1,0 +1,218 @@
+# ============================================================================
+# Oriental Synergy Nginx設定ファイル
+# 場所: /etc/nginx/sites-available/oriental-synergy
+# ============================================================================
+
+# バックエンドAPIサーバー
+upstream backend {
+    server 127.0.0.1:8000;
+    keepalive 32;
+}
+
+# フロントエンドサーバー
+upstream frontend {
+    server 127.0.0.1:3000;
+    keepalive 32;
+}
+
+# HTTP → HTTPS リダイレクト（SSL設定後にコメント解除）
+# server {
+#     listen 80;
+#     listen [::]:80;
+#     server_name yourdomain.com www.yourdomain.com;
+#     return 301 https://$server_name$request_uri;
+# }
+
+# HTTPサーバー（SSL設定前）
+server {
+    listen 80;
+    listen [::]:80;
+    server_name 162.43.15.173 x162-43-15-173.static.xvps.ne.jp;
+    # 本番ドメインを設定する場合は上記を変更
+    # server_name yourdomain.com www.yourdomain.com;
+
+    # ログ設定
+    access_log /var/log/nginx/oriental-synergy-access.log;
+    error_log /var/log/nginx/oriental-synergy-error.log warn;
+
+    # セキュリティヘッダー
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # ファイルアップロードサイズ制限
+    client_max_body_size 10M;
+    client_body_buffer_size 128k;
+
+    # タイムアウト設定
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+
+    # バックエンドAPI - /api/ で始まるリクエスト
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        
+        # WebSocket対応
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # ヘッダー設定
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        
+        # キャッシュ無効化
+        proxy_cache_bypass $http_upgrade;
+        proxy_no_cache 1;
+        
+        # バッファリング設定
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+        proxy_busy_buffers_size 8k;
+    }
+
+    # FastAPI ドキュメント - /docs
+    location /docs {
+        proxy_pass http://backend/api/docs;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # FastAPI ReDoc - /redoc
+    location /redoc {
+        proxy_pass http://backend/api/redoc;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # OpenAPI スキーマ
+    location /openapi.json {
+        proxy_pass http://backend/api/openapi.json;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # ヘルスチェックエンドポイント
+    location /health {
+        proxy_pass http://backend/health;
+        access_log off;
+    }
+
+    # Next.js 静的ファイル - /_next/
+    location /_next/static/ {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_cache_bypass $http_upgrade;
+        
+        # 静的ファイルのキャッシュ設定
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Next.js その他の /_next/ リクエスト
+    location /_next/ {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 画像ファイル
+    location ~* \.(jpg|jpeg|png|gif|ico|svg|webp)$ {
+        proxy_pass http://frontend;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # フロントエンド - その他すべてのリクエスト
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        
+        # WebSocket対応（Next.js HMR用）
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # ヘッダー設定
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        
+        # キャッシュ無効化
+        proxy_cache_bypass $http_upgrade;
+        proxy_no_cache 1;
+    }
+
+    # favicon
+    location = /favicon.ico {
+        proxy_pass http://frontend;
+        access_log off;
+        expires 30d;
+    }
+
+    # robots.txt
+    location = /robots.txt {
+        proxy_pass http://frontend;
+        access_log off;
+    }
+
+    # エラーページ
+    error_page 502 503 504 /50x.html;
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}
+
+# HTTPSサーバー（SSL証明書設定後にコメント解除）
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     server_name yourdomain.com www.yourdomain.com;
+#
+#     # SSL証明書（Let's Encryptで自動設定されます）
+#     ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+#     ssl_trusted_certificate /etc/letsencrypt/live/yourdomain.com/chain.pem;
+#
+#     # SSL設定
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
+#     ssl_prefer_server_ciphers on;
+#     ssl_session_cache shared:SSL:10m;
+#     ssl_session_timeout 10m;
+#     ssl_stapling on;
+#     ssl_stapling_verify on;
+#
+#     # セキュリティヘッダー（HTTPS用）
+#     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+#     add_header X-Frame-Options "SAMEORIGIN" always;
+#     add_header X-Content-Type-Options "nosniff" always;
+#     add_header X-XSS-Protection "1; mode=block" always;
+#
+#     # 上記のlocationブロックをここにもコピー
+#     # ...
+# }
+
+
+
+
+

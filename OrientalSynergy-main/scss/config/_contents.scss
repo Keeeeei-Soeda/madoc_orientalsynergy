@@ -1,0 +1,35 @@
+/* Scss Document contents */
+footer{position: fixed;bottom: 5px;right: 5px;}
+.none{display: none}
+main{max-width: 1300px;min-width: 300px;padding: 0px 10px 0 10px;@include w-auto;}
+.login{min-height: 80vh;@include flex-cc;}
+
+.pages{padding-top: 15px;
+	h1{font-size: 24px;margin-bottom: 20px; font-weight: 600;}
+	h2{font-size: 20px;margin-bottom: 20px; font-weight: 600;display: flex;align-content: center;
+		span{background: rgba(203,42,45,1.00);color: white;font-size: 12px;margin-left: 10px;padding: 3px;}
+	}
+	section{margin-bottom: 15px;padding: 10px;border: 1px solid lightgray;border-radius: 10px;}
+	.table01{margin-bottom: 20px;
+		dl{display: grid;grid-template-columns: 150px 1fr;padding: 0;border-bottom: 1px dotted gray; margin: 0;
+			dt,dd{padding: 3px !important;margin: 0;   }
+		}
+	}
+}
+
+.cl{
+	a{width: 35px;height: 35px;@include flex-cc;background: lightgray;color: black;border-radius: 50%;text-decoration: none;}
+	.re{background: rgba(233,43,43,1.00);color: white;}
+}
+input  + .modalbox{display: none}
+input:checked + .modalbox{background: rgba(0,0,0,0.50);position: fixed;height: 100vh;width: 100vw;@include flex-cc;top: 0;left: 0; 
+	section{background: white;max-height: 95vh;overflow-y: auto; }
+}
+.modalbox section{position: relative;}
+.close{position: absolute;right: 10px;top: 10px; 
+	label{display: block;width: 30px;height: 30px;border: 1px solid gray;@include flex-cc; }
+}
+
+.times{display: grid;grid-template-columns: 120px 1fr 100px;margin-bottom: 1px !important;border-bottom: 1px solid #eee;
+	span:first-child{border-right: 1px dotted gray;margin-right: 10px;} 
+}

@@ -1,0 +1,510 @@
+// ============================================================================
+// オリエンタルシナジー グローバルスタイル
+// ============================================================================
+
+// Google Fonts
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100;300;400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;300;400;500;600;700;900&display=swap');
+
+// Variables
+@import './variables';
+
+// Bootstrap カスタマイズ
+@import './custom-bootstrap';
+
+// ============================================================================
+// グローバルスタイル
+// ============================================================================
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: $font-family-ja;
+}
+
+body {
+  color: $gray-900;
+  background-color: $gray-100;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+// ============================================================================
+// レイアウト
+// ============================================================================
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  
+  .sidebar {
+    width: 250px;
+    background-color: $white;
+    border-right: 1px solid $gray-300;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    
+    @media (max-width: 768px) {
+      width: 60px;
+    }
+  }
+  
+  .main-wrapper {
+    flex: 1;
+    margin-left: 250px;
+    display: flex;
+    flex-direction: column;
+    
+    @media (max-width: 768px) {
+      margin-left: 60px;
+    }
+  }
+  
+  .header {
+    background-color: $white;
+    border-bottom: 1px solid $gray-300;
+    padding: 1rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .main-content {
+    flex: 1;
+    padding: 2rem;
+    
+    @media (max-width: 768px) {
+      padding: 1rem;
+    }
+  }
+  
+  .footer {
+    background-color: $white;
+    border-top: 1px solid $gray-300;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    color: $gray-600;
+    font-size: 0.875rem;
+  }
+}
+
+// ============================================================================
+// ページヘッダー
+// ============================================================================
+
+.page-header {
+  margin-bottom: 2rem;
+  
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: $gray-900;
+    margin-bottom: 0.5rem;
+  }
+  
+  .breadcrumb {
+    margin-bottom: 0;
+  }
+}
+
+// ============================================================================
+// カード
+// ============================================================================
+
+.card {
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+  
+  .card-header {
+    background-color: $white;
+    border-bottom: 1px solid $gray-200;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+  }
+  
+  .card-body {
+    padding: 1.5rem;
+  }
+}
+
+// ============================================================================
+// テーブル
+// ============================================================================
+
+.table-responsive {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table {
+  margin-bottom: 0;
+  background-color: $white;
+  
+  thead {
+    background-color: $gray-50;
+    
+    th {
+      font-weight: 600;
+      color: $gray-700;
+      border-bottom: 2px solid $gray-200;
+      padding: 1rem;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+  
+  tbody {
+    tr {
+      transition: background-color 0.15s ease;
+      
+      &:hover {
+        background-color: $gray-50;
+      }
+    }
+    
+    td {
+      padding: 1rem;
+      vertical-align: middle;
+      border-bottom: 1px solid $gray-200;
+    }
+  }
+}
+
+// ============================================================================
+// バッジ
+// ============================================================================
+
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  font-size: 0.75rem;
+}
+
+// ============================================================================
+// ボタン
+// ============================================================================
+
+.btn {
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease;
+  
+  &:focus {
+    box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
+  }
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.btn-lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.125rem;
+}
+
+// ============================================================================
+// フォーム
+// ============================================================================
+
+.form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: $gray-700;
+}
+
+.form-control,
+.form-select {
+  border: 1px solid $gray-300;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  
+  &:focus {
+    border-color: $primary;
+    box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
+  }
+}
+
+// ============================================================================
+// 統計カード
+// ============================================================================
+
+.stat-card {
+  background-color: $white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .stat-label {
+    font-size: 0.875rem;
+    color: $gray-600;
+    margin-bottom: 0.5rem;
+  }
+  
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: $gray-900;
+    margin-bottom: 0.25rem;
+  }
+  
+  .stat-change {
+    font-size: 0.875rem;
+    
+    &.positive {
+      color: $success;
+    }
+    
+    &.negative {
+      color: $danger;
+    }
+  }
+}
+
+// ============================================================================
+// 検索バー
+// ============================================================================
+
+.search-bar {
+  position: relative;
+  
+  .search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $gray-400;
+  }
+  
+  input {
+    padding-left: 2.5rem;
+  }
+}
+
+// ============================================================================
+// ページネーション
+// ============================================================================
+
+.pagination {
+  .page-link {
+    color: $gray-700;
+    border: 1px solid $gray-300;
+    margin: 0 2px;
+    border-radius: 0.375rem;
+    
+    &:hover {
+      background-color: $gray-100;
+      border-color: $gray-300;
+    }
+  }
+  
+  .page-item.active .page-link {
+    background-color: $primary;
+    border-color: $primary;
+  }
+}
+
+// ============================================================================
+// モーダル
+// ============================================================================
+
+.modal-content {
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  border-bottom: 1px solid $gray-200;
+  padding: 1.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  border-top: 1px solid $gray-200;
+  padding: 1.5rem;
+}
+
+// ============================================================================
+// ユーティリティ
+// ============================================================================
+
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// ============================================================================
+// ローディング
+// ============================================================================
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+// ============================================================================
+// エラーメッセージ
+// ============================================================================
+
+.error-message {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  color: $danger;
+}
+
+// ============================================================================
+// レスポンシブ
+// ============================================================================
+
+@media (max-width: 768px) {
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .btn {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+  }
+}
+
+// ============================================================================
+// カスタムカラークラス (femally風 - 紫ベース)
+// ============================================================================
+
+// 管理画面カラー
+.text-admin {
+  color: $admin-color !important;
+}
+
+.bg-admin {
+  background-color: $admin-color !important;
+}
+
+.border-admin {
+  border-color: $admin-color !important;
+}
+
+.btn-admin {
+  background-color: $admin-color;
+  border-color: $admin-color;
+  color: $white;
+  
+  &:hover {
+    background-color: darken($admin-color, 10%);
+    border-color: darken($admin-color, 10%);
+  }
+}
+
+// 企業側カラー
+.text-company {
+  color: $company-color !important;
+}
+
+.bg-company {
+  background-color: $company-color !important;
+}
+
+.border-company {
+  border-color: $company-color !important;
+}
+
+.btn-company {
+  background-color: $company-color;
+  border-color: $company-color;
+  color: $white;
+  
+  &:hover {
+    background-color: darken($company-color, 10%);
+    border-color: darken($company-color, 10%);
+  }
+}
+
+// スタッフ側カラー
+.text-staff {
+  color: $staff-color !important;
+}
+
+.bg-staff {
+  background-color: $staff-color !important;
+}
+
+.border-staff {
+  border-color: $staff-color !important;
+}
+
+.btn-staff {
+  background-color: $staff-color;
+  border-color: $staff-color;
+  color: $white;
+  
+  &:hover {
+    background-color: darken($staff-color, 10%);
+    border-color: darken($staff-color, 10%);
+  }
+}
+
+// 紫系のグラデーション
+.bg-purple-gradient {
+  background: linear-gradient(135deg, $admin-color 0%, $company-color 50%, $staff-color 100%);
+}
+
+// 柔らかい背景色
+.bg-purple-light {
+  background-color: rgba($primary, 0.1) !important;
+}
+
+.bg-purple-lighter {
+  background-color: rgba($primary, 0.05) !important;
+}
+

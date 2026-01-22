@@ -1,0 +1,31 @@
+// ============================================================================
+// Bootstrap カスタマイズ
+// ============================================================================
+
+// Bootstrapの変数をオーバーライド (femally風 - 紫ベース)
+$primary: #7B3F8B;      // メイン紫
+$secondary: #6C757D;
+$success: #9B5FAB;      // 紫系のサクセスカラー
+$danger: #DC3545;
+$warning: #D4A5A5;      // 柔らかいピンク系
+$info: #AB6FBB;         // 明るい紫
+
+$font-family-sans-serif: 'Noto Sans JP', sans-serif;
+$font-size-base: 1rem;
+$line-height-base: 1.6;
+
+$border-radius: 0.375rem;
+$border-radius-sm: 0.25rem;
+$border-radius-lg: 0.5rem;
+
+// Bootstrap本体をインポート
+@import 'bootstrap/scss/bootstrap';
+
+// 追加のカスタマイズ
+.btn-outline-primary {
+  &:hover {
+    background-color: $primary;
+    border-color: $primary;
+  }
+}
+

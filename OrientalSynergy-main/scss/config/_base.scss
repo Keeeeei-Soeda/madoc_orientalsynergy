@@ -1,0 +1,33 @@
+/* Scss Document */
+/* 全体
+============================================================================================================*/
+*  {
+	padding : 0px;
+	margin : 0px;
+}
+ 
+
+
+/* body
+============================================================================================================*/
+body   {    
+	color:#000000;
+ font-size: 1em;
+  line-height: 1.8; /* 1 */
+  -webkit-text-size-adjust: 100%; /* 2 */
+	font-family: 'Noto Sans JP','Roboto',  sans-serif;
+	margin-top: 0px;
+	background-color: #fff;
+
+}
+
+img {
+	border-style: none;
+	max-width: 100%;
+	height: auto;
+	vertical-align: bottom;
+ line-height: 100%;
+}
+
+
+
