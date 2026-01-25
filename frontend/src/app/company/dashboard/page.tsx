@@ -171,7 +171,7 @@ export default function CompanyDashboardPage() {
                                 {reservation.start_time} ～ {reservation.end_time}
                               </small>
                             </td>
-                            <td>{reservation.staffNames || reservation.staff_names || '未アサイン'}</td>
+                            <td>{reservation.staff_names || '未アサイン'}</td>
                             <td>
                               <span className={`badge ${badgeClass}`}>
                                 {label}
