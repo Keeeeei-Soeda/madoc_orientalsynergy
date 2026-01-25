@@ -15,6 +15,7 @@ export default function CompanyEvaluateStaffPage() {
 
   const [reservation, setReservation] = useState<Reservation | null>(null)
   const [assignment, setAssignment] = useState<Assignment | null>(null)
+  const [isEvaluated, setIsEvaluated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,9 +46,21 @@ export default function CompanyEvaluateStaffPage() {
           throw new Error('この予約にアクセスする権限がありません')
         }
 
-        // アサインメントが確定済みか確認
+        // アサインメントが確定済みまたは完了済みか確認
         if (assignmentData.status !== 'confirmed') {
           throw new Error('確定済みのアサインメントのみ評価できます')
+        }
+
+        // 既に評価済みかチェック
+        try {
+          const checkResult = await ratingsApi.checkExists(reservationId, assignmentData.staff_id)
+          if (checkResult.exists) {
+            setIsEvaluated(true)
+            setError('このスタッフは既に評価済みです。')
+          }
+        } catch (err) {
+          console.error('評価チェックエラー:', err)
+          // チェックエラーは無視（評価可能として扱う）
         }
 
         setReservation(reservationData)
@@ -66,6 +79,13 @@ export default function CompanyEvaluateStaffPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // 既に評価済みの場合はアラートを表示して処理を中断
+    if (isEvaluated) {
+      alert('このスタッフは既に評価済みです。')
+      router.push(`/company/reservations/${reservationId}`)
+      return
+    }
 
     if (!reservation || !assignment || !user?.company_id) {
       alert('企業情報が不足しています')
@@ -126,6 +146,7 @@ export default function CompanyEvaluateStaffPage() {
               className="btn btn-link p-0 text-decoration-none"
               onClick={() => onChange(star)}
               style={{ fontSize: '2rem' }}
+              disabled={isEvaluated}
             >
               {star <= value ? (
                 <i className="bi bi-star-fill text-warning"></i>
@@ -266,6 +287,14 @@ export default function CompanyEvaluateStaffPage() {
 
         {/* 評価フォーム */}
         <div className="col-12">
+          {isEvaluated && (
+            <div className="alert alert-warning mb-4" role="alert">
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              <strong>このスタッフは既に評価済みです。</strong>
+              <br />
+              評価済みのスタッフに対して再度評価を登録することはできません。
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="card">
               <div className="card-header">
@@ -273,8 +302,14 @@ export default function CompanyEvaluateStaffPage() {
                   <i className="bi bi-star me-2"></i>
                   評価入力
                 </h5>
+                {isEvaluated && (
+                  <span className="badge bg-success ms-2">
+                    <i className="bi bi-check-circle me-1"></i>
+                    評価済み
+                  </span>
+                )}
               </div>
-              <div className="card-body">
+              <div className="card-body" style={isEvaluated ? { opacity: 0.6, pointerEvents: 'none' } : {}}>
                 {renderStarRating('清潔感', cleanliness, setCleanliness)}
                 {renderStarRating('適度', responsiveness, setResponsiveness)}
                 {renderStarRating('満足度', satisfaction, setSatisfaction)}
@@ -308,6 +343,7 @@ export default function CompanyEvaluateStaffPage() {
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="スタッフの対応や技術について、具体的なコメントを入力してください"
                     required
+                    disabled={isEvaluated}
                   />
                   <small className="text-muted">
                     {comment.length} 文字
@@ -327,7 +363,7 @@ export default function CompanyEvaluateStaffPage() {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={submitting || !comment.trim()}
+                  disabled={submitting || !comment.trim() || isEvaluated}
                 >
                   {submitting ? (
                     <>

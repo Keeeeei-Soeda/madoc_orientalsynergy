@@ -21,7 +21,7 @@ export default function NewCompanyReservationPage() {
     end_time: '',
     max_participants: 1,
     employee_names: '',
-    status: 'pending',
+    status: 'recruiting',
     notes: '',
     requirements: '',
   })

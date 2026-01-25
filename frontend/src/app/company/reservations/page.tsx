@@ -25,11 +25,12 @@ export default function CompanyReservationsPage() {
       setError(null)
       const data = await reservationsApi.getAll()
       
-      // 各予約の空き枠を計算（time_slotsのis_filledを使用）
+      // 各予約の空き枠を計算（slots_filledとmax_participantsを使用）
       const reservationsWithAvailability = data.map((reservation) => {
-        // time_slotsから割り当て済み枠数をカウント
+        // slots_filledから予約済み枠数を取得
         const filledSlots = reservation.slots_filled || 0
-        const totalSlots = reservation.slot_count || reservation.max_participants || 1
+        // max_participantsが募集人数（slot_countは時間枠の総数なので使用しない）
+        const totalSlots = reservation.max_participants || 1
         const availableSlots = totalSlots - filledSlots
         
         return {
@@ -136,7 +137,6 @@ export default function CompanyReservationsPage() {
                   <th>事業所住所</th>
                   <th>訪問日付</th>
                   <th>募集人数/空き枠</th>
-                  <th>スタッフ</th>
                   <th>社員</th>
                   <th>ステータス</th>
                   <th>アクション</th>
@@ -169,7 +169,6 @@ export default function CompanyReservationsPage() {
                           )}
                         </div>
                       </td>
-                      <td>{reservation.staff_names || '未定'}</td>
                       <td>{reservation.employee_names || '未定'}</td>
                       <td>
                         <span className={`badge ${getStatusBadgeClass(reservation.status)}`}>

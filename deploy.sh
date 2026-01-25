@@ -3,89 +3,81 @@
 # オリエンタルシナジー デプロイスクリプト
 # ============================================================================
 
-set -e  # エラー時に停止
+set -e  # エラーが発生したら即座に終了
 
-# 色付きメッセージ
+echo "🚀 オリエンタルシナジー デプロイを開始します..."
+
+# 色の定義
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Oriental Synergy デプロイスクリプト${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
-
-# 環境変数の確認
-echo -e "${YELLOW}📋 環境変数の確認...${NC}"
-if [ ! -f "backend/.env" ]; then
-    echo -e "${RED}❌ backend/.env が見つかりません${NC}"
-    echo "backend/env.example をコピーして backend/.env を作成してください"
+# 環境変数ファイルの確認
+if [ ! -f .env.production ]; then
+    echo -e "${YELLOW}⚠️  .env.production が見つかりません${NC}"
+    echo "📝 .env.production.example をコピーして作成してください："
+    echo "   cp .env.production.example .env.production"
+    echo "   その後、実際の値を設定してください"
     exit 1
 fi
 
-if [ ! -f "frontend/.env.local" ]; then
-    echo -e "${RED}❌ frontend/.env.local が見つかりません${NC}"
-    echo "frontend/env.local.example をコピーして frontend/.env.local を作成してください"
+# DockerとDocker Composeの確認
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}❌ Dockerがインストールされていません${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ 環境変数ファイルが存在します${NC}"
+if ! command -v docker compose &> /dev/null && ! command -v docker-compose &> /dev/null; then
+    echo -e "${RED}❌ Docker Composeがインストールされていません${NC}"
+    exit 1
+fi
+
+# Docker Composeコマンドの決定
+if command -v docker compose &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    DOCKER_COMPOSE="docker-compose"
+fi
+
+echo -e "${GREEN}✅ 環境チェック完了${NC}"
 echo ""
 
-# 古いコンテナの停止と削除
-echo -e "${YELLOW}🛑 既存のコンテナを停止中...${NC}"
-docker-compose -f docker-compose.prod.yml down
+# 既存のコンテナを停止・削除
+echo "🛑 既存のコンテナを停止します..."
+$DOCKER_COMPOSE -f docker-compose.production.yml down
 
-# イメージのビルド
-echo -e "${YELLOW}🔨 Dockerイメージをビルド中...${NC}"
-docker-compose -f docker-compose.prod.yml build --no-cache
+# イメージをビルド
+echo "🔨 Dockerイメージをビルドします..."
+$DOCKER_COMPOSE -f docker-compose.production.yml build --no-cache
 
-# コンテナの起動
-echo -e "${YELLOW}🚀 コンテナを起動中...${NC}"
-docker-compose -f docker-compose.prod.yml up -d
+# コンテナを起動
+echo "🚀 コンテナを起動します..."
+$DOCKER_COMPOSE -f docker-compose.production.yml up -d
 
 # ヘルスチェック
-echo -e "${YELLOW}🏥 ヘルスチェック中...${NC}"
+echo "⏳ サービスが起動するまで待機します..."
 sleep 10
 
-# バックエンドのヘルスチェック
-if curl -f http://localhost:8000/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ バックエンドは正常に起動しました${NC}"
-else
-    echo -e "${RED}❌ バックエンドの起動に失敗しました${NC}"
-    echo "ログを確認してください: docker-compose -f docker-compose.prod.yml logs backend"
-    exit 1
-fi
+# データベースの初期化確認
+echo "📊 データベースの状態を確認します..."
+$DOCKER_COMPOSE -f docker-compose.production.yml exec -T postgres psql -U oriental_user -d oriental_db -c "SELECT version();" || echo "⚠️  データベース接続に失敗しました"
 
-# フロントエンドのヘルスチェック
-if curl -f http://localhost:3000 > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ フロントエンドは正常に起動しました${NC}"
-else
-    echo -e "${RED}❌ フロントエンドの起動に失敗しました${NC}"
-    echo "ログを確認してください: docker-compose -f docker-compose.prod.yml logs frontend"
-    exit 1
-fi
+# サービスの状態を表示
+echo ""
+echo -e "${GREEN}✅ デプロイ完了！${NC}"
+echo ""
+echo "📋 実行中のコンテナ："
+$DOCKER_COMPOSE -f docker-compose.production.yml ps
 
 echo ""
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}✅ デプロイが完了しました！${NC}"
-echo -e "${GREEN}========================================${NC}"
+echo "🌐 アクセスURL："
+echo "   - フロントエンド: http://162.43.15.173:3000"
+echo "   - バックエンドAPI: http://162.43.15.173:8000"
+echo "   - APIドキュメント: http://162.43.15.173:8000/api/docs"
 echo ""
-echo -e "${BLUE}📊 アクセスURL:${NC}"
-echo "  フロントエンド: http://localhost:3000"
-echo "  バックエンドAPI: http://localhost:8000"
-echo "  API ドキュメント: http://localhost:8000/api/docs"
+echo "📝 ログを確認するには："
+echo "   $DOCKER_COMPOSE -f docker-compose.production.yml logs -f [service_name]"
 echo ""
-echo -e "${BLUE}📝 便利なコマンド:${NC}"
-echo "  ログを確認: docker-compose -f docker-compose.prod.yml logs -f"
-echo "  コンテナ状態: docker-compose -f docker-compose.prod.yml ps"
-echo "  停止: docker-compose -f docker-compose.prod.yml down"
-echo "  再起動: docker-compose -f docker-compose.prod.yml restart"
-echo ""
-
-
-
-
-
+echo "🛑 停止するには："
+echo "   $DOCKER_COMPOSE -f docker-compose.production.yml down"

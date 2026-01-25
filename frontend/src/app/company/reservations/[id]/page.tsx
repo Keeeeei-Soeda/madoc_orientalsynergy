@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PageHeader from '@/components/common/PageHeader'
 import TimeSlotDisplay, { TimeSlotWithEmployee } from '@/components/reservations/TimeSlotDisplay'
-import { reservationsApi, employeesApi, assignmentsApi, Reservation, Employee, Assignment, getCompanyStatusLabel, getStatusBadgeClass } from '@/lib/api'
+import { reservationsApi, employeesApi, assignmentsApi, ratingsApi, Reservation, Employee, Assignment, getCompanyStatusLabel, getStatusBadgeClass } from '@/lib/api'
 import { useAuth } from '@/lib/auth/AuthContext'
 
 export default function CompanyReservationDetailPage() {
@@ -18,6 +18,7 @@ export default function CompanyReservationDetailPage() {
   const [reservation, setReservation] = useState<Reservation | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [evaluatedStaffIds, setEvaluatedStaffIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showEmployeeModal, setShowEmployeeModal] = useState(false)
@@ -53,6 +54,24 @@ export default function CompanyReservationDetailPage() {
       setReservation(reservationData)
       setEmployees(employeesData)
       setAssignments(assignmentsData)
+      
+      // 評価済みのスタッフIDをチェック
+      const evaluatedSet = new Set<number>()
+      const checkPromises = assignmentsData
+        .filter(a => a.status === 'confirmed')
+        .map(async (assignment) => {
+          try {
+            const checkResult = await ratingsApi.checkExists(reservationId, assignment.staff_id)
+            if (checkResult.exists) {
+              evaluatedSet.add(assignment.staff_id)
+            }
+          } catch (err) {
+            console.error(`評価チェックエラー (staff_id: ${assignment.staff_id}):`, err)
+          }
+        })
+      
+      await Promise.all(checkPromises)
+      setEvaluatedStaffIds(evaluatedSet)
     } catch (err) {
       setError(err instanceof Error ? err.message : '予約データの取得に失敗しました')
       console.error('予約データ取得エラー:', err)
@@ -241,8 +260,11 @@ export default function CompanyReservationDetailPage() {
   const assignedCount = timeSlots.filter(slot => slot.is_filled).length
   const totalSlots = timeSlots.length
   
-  // 確定済みのアサインメント
+  // 確定済みのアサインメント（すべての確定済み）
   const confirmedAssignments = assignments.filter(a => a.status === 'confirmed')
+  
+  // 完了報告済みのアサインメント（評価対象）
+  const completedAssignments = assignments.filter(a => a.status === 'confirmed')
   
   return (
     <>
@@ -355,7 +377,6 @@ export default function CompanyReservationDetailPage() {
               {timeSlots.length > 0 ? (
                 <TimeSlotDisplay
                   slots={timeSlots}
-                  hourlyRate={reservation.hourly_rate}
                   onAssignEmployee={handleAssignEmployee}
                   onUnassignEmployee={handleUnassignEmployee}
                 />
@@ -369,15 +390,18 @@ export default function CompanyReservationDetailPage() {
           </div>
         </div>
         
-        {/* スタッフアサイン状況と評価 */}
-        {confirmedAssignments.length > 0 && (
+        {/* スタッフ評価（完了報告済みの案件のみ） */}
+        {completedAssignments.length > 0 && (
           <div className="col-12">
             <div className="card">
               <div className="card-header">
                 <h5 className="mb-0">
-                  <i className="bi bi-person-check me-2"></i>
-                  確定スタッフと評価
+                  <i className="bi bi-star me-2"></i>
+                  スタッフ評価（完了報告済み）
                 </h5>
+                <small className="text-muted">
+                  完了報告されたスタッフの評価を行うことができます
+                </small>
               </div>
               <div className="card-body">
                 <div className="table-responsive">
@@ -392,7 +416,7 @@ export default function CompanyReservationDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {confirmedAssignments.map((assignment) => {
+                      {completedAssignments.map((assignment) => {
                         const slot = timeSlots.find(s => s.slot === assignment.slot_number)
                         return (
                           <tr key={assignment.id}>
@@ -420,19 +444,38 @@ export default function CompanyReservationDetailPage() {
                               )}
                             </td>
                             <td>
-                              <span className="badge bg-success">
-                                <i className="bi bi-check-circle me-1"></i>
-                                確定済み
+                              <span className="badge bg-info">
+                                <i className="bi bi-clipboard-check me-1"></i>
+                                完了報告済み
                               </span>
                             </td>
                             <td>
-                              <Link
-                                href={`/company/reservations/${reservation.id}/evaluate/${assignment.id}`}
-                                className="btn btn-sm btn-outline-primary"
-                              >
-                                <i className="bi bi-star me-1"></i>
-                                評価する
-                              </Link>
+                              {evaluatedStaffIds.has(assignment.staff_id) ? (
+                                <div>
+                                  <span className="badge bg-success me-2">
+                                    <i className="bi bi-check-circle me-1"></i>
+                                    評価済み
+                                  </span>
+                                  <button
+                                    className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => {
+                                      alert('このスタッフは既に評価済みです。')
+                                    }}
+                                    disabled
+                                  >
+                                    <i className="bi bi-star me-1"></i>
+                                    評価する
+                                  </button>
+                                </div>
+                              ) : (
+                                <Link
+                                  href={`/company/reservations/${reservation.id}/evaluate/${assignment.id}`}
+                                  className="btn btn-sm btn-outline-primary"
+                                >
+                                  <i className="bi bi-star me-1"></i>
+                                  評価する
+                                </Link>
+                              )}
                             </td>
                           </tr>
                         )

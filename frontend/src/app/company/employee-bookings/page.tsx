@@ -6,71 +6,18 @@ import { Reservation, reservationsApi, EmployeeRegistration } from '@/lib/api'
 
 const statusConfig = {
   pending: { label: '募集中', color: 'success' },
+  recruiting: { label: '募集中', color: 'success' },
   confirmed: { label: '確定済み', color: 'primary' },
   completed: { label: '終了', color: 'secondary' },
   cancelled: { label: 'キャンセル', color: 'danger' },
 }
-
-// モックデータ（認証機能実装までの仮データ）
-const mockReservations: Reservation[] = [
-  {
-    id: 1,
-    company_id: 1,
-    office_name: '本社オフィス',
-    office_address: '大阪府大阪市北区梅田1-1-1',
-    reservation_date: '2026/01/15',
-    start_time: '10:00',
-    end_time: '12:00',
-    max_participants: 3, // 募集人数: 3名
-    staff_names: '山田花子, 佐藤美咲',
-    employee_names: '田中部長, 鈴木課長', // 既に2名登録済み（空き1名）
-    status: 'pending',
-    notes: '定期契約',
-    requirements: '',
-    created_at: '2026-01-01T00:00:00',
-    updated_at: '2026-01-01T00:00:00',
-  },
-  {
-    id: 2,
-    company_id: 1,
-    office_name: '本社オフィス',
-    office_address: '大阪府大阪市北区梅田1-1-1',
-    reservation_date: '2026/01/20',
-    start_time: '14:00',
-    end_time: '16:00',
-    max_participants: 1, // 募集人数: 1名（満席）
-    staff_names: '',
-    employee_names: '佐藤主任', // 1名登録済み（満席）
-    status: 'pending',
-    notes: '定期契約',
-    requirements: '',
-    created_at: '2026-01-02T00:00:00',
-    updated_at: '2026-01-02T00:00:00',
-  },
-  {
-    id: 3,
-    company_id: 1,
-    office_name: '梅田営業所',
-    office_address: '大阪府大阪市北区梅田2-2-2',
-    reservation_date: '2026/01/25',
-    start_time: '15:00',
-    end_time: '17:00',
-    max_participants: 5, // 募集人数: 5名
-    staff_names: '',
-    employee_names: '', // まだ誰も登録していない（空き5名）
-    status: 'pending',
-    notes: '新規事業所',
-    requirements: '',
-    created_at: '2026-01-03T00:00:00',
-    updated_at: '2026-01-03T00:00:00',
-  },
-]
 
 export default function EmployeeBookingsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
   const [registrationForm, setRegistrationForm] = useState({
     employee_name: '',
     department: '',
@@ -81,22 +28,15 @@ export default function EmployeeBookingsPage() {
   })
   const [submitting, setSubmitting] = useState(false)
 
-  // データ取得（モックデータを使用）
+  // データ取得
   useEffect(() => {
-    // 認証機能実装までは、モックデータを表示
-    // statusが'pending'（募集中）の予約のみ表示
-    setTimeout(() => {
-      setReservations(mockReservations.filter(r => r.status === 'pending'))
-      setLoading(false)
-    }, 500)
-
-    /* API連携版（認証実装後に使用）
     const fetchReservations = async () => {
       try {
         setLoading(true)
         // 募集中の予約のみ取得
-        const data = await reservationsApi.getAll({ status: 'pending' })
-        setReservations(data)
+        const allReservations = await reservationsApi.getAll()
+        const recruiting = allReservations.filter(r => r.status === 'recruiting')
+        setReservations(recruiting)
       } catch (err) {
         setError(err instanceof Error ? err.message : '予約データの取得に失敗しました')
         console.error('予約データ取得エラー:', err)
@@ -105,7 +45,6 @@ export default function EmployeeBookingsPage() {
       }
     }
     fetchReservations()
-    */
   }, [])
 
   // 予約詳細モーダルを開く
@@ -163,10 +102,15 @@ export default function EmployeeBookingsPage() {
       return
     }
     
+    if (!selectedSlot) {
+      alert('時間枠を選択してください')
+      return
+    }
+    
     try {
       setSubmitting(true)
       
-      // API連携版（認証実装後に使用）
+      // 枠番号を含む社員データ
       const employeeData: EmployeeRegistration = {
         employee_name: registrationForm.employee_name,
         department: registrationForm.department,
@@ -174,10 +118,12 @@ export default function EmployeeBookingsPage() {
         phone: registrationForm.phone || undefined,
         email: registrationForm.email || undefined,
         notes: registrationForm.notes || undefined,
+        slot_number: selectedSlot, // 選択した枠番号
       }
-      // await reservationsApi.addEmployee(selectedReservation.id, employeeData)
       
-      alert(`予約ID ${selectedReservation.id} に登録しました！\n\n社員名: ${registrationForm.employee_name}\n部署: ${registrationForm.department}`)
+      await reservationsApi.addEmployee(selectedReservation.id, employeeData)
+      
+      alert(`予約登録が完了しました！\n\n枠番号: ${selectedSlot}\n社員名: ${registrationForm.employee_name}\n部署: ${registrationForm.department}`)
       
       // モーダルを閉じる
       const modalElement = document.getElementById('registrationModal')
@@ -186,8 +132,14 @@ export default function EmployeeBookingsPage() {
         modal?.hide()
       }
       
-      // ページをリロード（実際はAPIから再取得）
-      // window.location.reload()
+      // データを再取得
+      const allReservations = await reservationsApi.getAll()
+      const recruiting = allReservations.filter(r => r.status === 'recruiting')
+      setReservations(recruiting)
+      
+      // 選択状態をリセット
+      setSelectedSlot(null)
+      setSelectedReservation(null)
     } catch (err) {
       alert('登録に失敗しました: ' + (err instanceof Error ? err.message : '不明なエラー'))
       console.error('登録エラー:', err)
@@ -262,9 +214,12 @@ export default function EmployeeBookingsPage() {
       <div className="row g-4">
         {reservations.map((reservation) => {
           const config = statusConfig[reservation.status as keyof typeof statusConfig]
-          const registeredCount = reservation.employee_names 
-            ? reservation.employee_names.split(',').filter(n => n.trim()).length 
-            : 0
+          // slots_filledを優先的に使用（正確な予約済み枠数）
+          const registeredCount = reservation.slots_filled !== undefined 
+            ? reservation.slots_filled 
+            : (reservation.employee_names 
+                ? reservation.employee_names.split(',').filter(n => n.trim()).length 
+                : 0)
           const maxParticipants = reservation.max_participants || 1
           const availableSlots = maxParticipants - registeredCount
           const isFull = availableSlots <= 0
@@ -355,20 +310,21 @@ export default function EmployeeBookingsPage() {
                   </div>
 
                   <div className="d-flex gap-2">
-                    <button
-                      className="btn btn-outline-secondary flex-grow-1"
-                      onClick={() => handleShowDetail(reservation)}
-                    >
-                      <i className="bi bi-eye me-2"></i>
-                      詳細を見る
-                    </button>
-                    {!isFull && (
+                    {!isFull ? (
                       <button
-                        className="btn btn-success"
-                        onClick={() => handleShowRegistration(reservation)}
+                        className="btn btn-success w-100"
+                        onClick={() => handleShowDetail(reservation)}
                       >
-                        <i className="bi bi-person-plus me-2"></i>
-                        登録する
+                        <i className="bi bi-calendar-check me-2"></i>
+                        時間枠を選択して登録する
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-outline-secondary w-100"
+                        onClick={() => handleShowDetail(reservation)}
+                      >
+                        <i className="bi bi-eye me-2"></i>
+                        詳細を見る（満席）
                       </button>
                     )}
                   </div>
@@ -390,22 +346,26 @@ export default function EmployeeBookingsPage() {
 
       {/* 予約詳細モーダル */}
       <div className="modal fade" id="bookingDetailModal" tabIndex={-1}>
-        <div className="modal-dialog modal-lg">
+        <div className="modal-dialog modal-xl">
           <div className="modal-content">
             <div className="modal-header bg-success bg-opacity-10">
               <h5 className="modal-title">
                 <i className="bi bi-calendar-check me-2 text-success"></i>
-                予約詳細
+                予約詳細と時間枠選択
               </h5>
               <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div className="modal-body">
               {selectedReservation && (
                 <>
-                  <table className="table table-borderless">
+                  <h6 className="mb-3">
+                    <i className="bi bi-info-circle me-2"></i>
+                    予約情報
+                  </h6>
+                  <table className="table table-borderless table-sm mb-4">
                     <tbody>
                       <tr>
-                        <th style={{ width: '30%' }}>予約ID</th>
+                        <th style={{ width: '25%' }}>予約ID</th>
                         <td>{selectedReservation.id}</td>
                       </tr>
                       <tr>
@@ -425,31 +385,117 @@ export default function EmployeeBookingsPage() {
                         <td>{selectedReservation.start_time}〜{selectedReservation.end_time}</td>
                       </tr>
                       <tr>
-                        <th>派遣スタッフ</th>
-                        <td>{selectedReservation.staff_names || '未アサイン'}</td>
-                      </tr>
-                      <tr>
-                        <th>登録済み社員</th>
-                        <td>{selectedReservation.employee_names || 'なし'}</td>
-                      </tr>
-                      <tr>
                         <th>要望</th>
                         <td>{selectedReservation.requirements || '-'}</td>
-                      </tr>
-                      <tr>
-                        <th>備考</th>
-                        <td>{selectedReservation.notes || '-'}</td>
                       </tr>
                     </tbody>
                   </table>
 
+                  <hr className="my-4" />
+
+                  {/* 時間枠選択セクション */}
+                  <h6 className="mb-3">
+                    <i className="bi bi-clock me-2"></i>
+                    時間枠を選択してください
+                  </h6>
+                  
+                  {selectedReservation.time_slots && selectedReservation.time_slots.length > 0 ? (
+                    <div className="row g-3">
+                      {selectedReservation.time_slots.map((slot: any) => {
+                        const isFilled = slot.is_filled || false
+                        const isSelected = selectedSlot === slot.slot
+                        
+                        return (
+                          <div key={slot.slot} className="col-12 col-md-6 col-lg-4">
+                            <div className={`card h-100 ${isFilled ? 'border-secondary bg-light' : isSelected ? 'border-success border-3 bg-success bg-opacity-10' : 'border-success'}`}>
+                              <div className="card-body">
+                                <div className="d-flex justify-content-between align-items-start mb-2">
+                                  <h6 className={`mb-0 ${isFilled ? 'text-secondary' : 'text-success'}`}>
+                                    <i className={`bi bi-${isFilled ? 'x-circle' : 'check-circle'} me-2`}></i>
+                                    枠{slot.slot}
+                                  </h6>
+                                  {isSelected && (
+                                    <span className="badge bg-success">
+                                      <i className="bi bi-check2 me-1"></i>
+                                      選択中
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                <div className="mb-2">
+                                  <div className="fw-bold">{slot.start_time}〜{slot.end_time}</div>
+                                  <small className="text-muted">施術時間: {slot.duration}分</small>
+                                </div>
+                                
+                                {isFilled ? (
+                                  <div className="text-muted small">
+                                    <i className="bi bi-person-fill me-1"></i>
+                                    予約済み
+                                    {slot.employee_name && (
+                                      <div className="mt-1">
+                                        {slot.employee_name}
+                                        {slot.employee_department && ` (${slot.employee_department})`}
+                                      </div>
+                                    )}
+                                    {slot.staff_name && !slot.employee_name && (
+                                      <div className="mt-1">
+                                        {slot.staff_name}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <button
+                                    className={`btn w-100 ${isSelected ? 'btn-success' : 'btn-outline-success'}`}
+                                    onClick={() => setSelectedSlot(slot.slot)}
+                                  >
+                                    {isSelected ? (
+                                      <>
+                                        <i className="bi bi-check-circle-fill me-2"></i>
+                                        選択済み
+                                      </>
+                                    ) : (
+                                      <>
+                                        <i className="bi bi-check-circle me-2"></i>
+                                        この枠で登録
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="alert alert-warning">
+                      <i className="bi bi-exclamation-triangle me-2"></i>
+                      この予約には時間枠が設定されていません
+                    </div>
+                  )}
+
                   <div className="d-flex gap-2 mt-4">
                     <button
-                      className="btn btn-success w-100"
-                      onClick={() => handleShowRegistration(selectedReservation)}
+                      type="button"
+                      className="btn btn-secondary"
+                      data-bs-dismiss="modal"
                     >
-                      <i className="bi bi-person-plus me-2"></i>
-                      この予約に登録する
+                      <i className="bi bi-x-circle me-2"></i>
+                      キャンセル
+                    </button>
+                    <button
+                      className="btn btn-success flex-grow-1"
+                      onClick={() => {
+                        if (!selectedSlot) {
+                          alert('時間枠を選択してください')
+                          return
+                        }
+                        handleShowRegistration(selectedReservation)
+                      }}
+                      disabled={!selectedSlot}
+                    >
+                      <i className="bi bi-arrow-right-circle me-2"></i>
+                      選択した枠で登録手続きへ進む
                     </button>
                   </div>
                 </>
@@ -463,19 +509,35 @@ export default function EmployeeBookingsPage() {
       <div className="modal fade" id="registrationModal" tabIndex={-1}>
         <div className="modal-dialog">
           <div className="modal-content">
-            <div className="modal-header">
+            <div className="modal-header bg-success bg-opacity-10">
               <h5 className="modal-title">
-                <i className="bi bi-person-plus me-2"></i>
+                <i className="bi bi-person-plus me-2 text-success"></i>
                 予約登録フォーム
               </h5>
               <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
-                {selectedReservation && (
-                  <div className="alert alert-info mb-3">
-                    <strong>予約情報:</strong><br />
-                    {selectedReservation.office_name} - {selectedReservation.reservation_date} {selectedReservation.start_time}〜{selectedReservation.end_time}
+                {selectedReservation && selectedSlot && (
+                  <div className="alert alert-success mb-3">
+                    <h6 className="alert-heading mb-2">
+                      <i className="bi bi-check-circle me-2"></i>
+                      選択内容
+                    </h6>
+                    <div className="mb-1">
+                      <strong>事業所:</strong> {selectedReservation.office_name}
+                    </div>
+                    <div className="mb-1">
+                      <strong>日時:</strong> {selectedReservation.reservation_date}
+                    </div>
+                    <div className="mb-1">
+                      <strong>選択した時間枠:</strong> 枠{selectedSlot}
+                      {selectedReservation.time_slots && selectedReservation.time_slots[selectedSlot - 1] && (
+                        <span className="ms-2">
+                          ({selectedReservation.time_slots[selectedSlot - 1].start_time}〜{selectedReservation.time_slots[selectedSlot - 1].end_time})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 

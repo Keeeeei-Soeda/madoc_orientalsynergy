@@ -22,7 +22,7 @@ export default function CompanyEvaluationsPage() {
       
       // 完了済みまたは評価済みの予約のみ
       const filteredData = data.filter(r => 
-        r.status === 'completed' || r.status === 'evaluated'
+        r.status === 'confirmed' || r.status === 'recruiting'
       )
       
       setReservations(filteredData)
@@ -40,8 +40,8 @@ export default function CompanyEvaluationsPage() {
 
   // フィルター適用
   const filteredReservations = reservations.filter(r => {
-    if (filter === 'completed') return r.status === 'completed'
-    if (filter === 'evaluated') return r.status === 'evaluated'
+    if (filter === 'completed') return r.status === 'confirmed'
+    if (filter === 'evaluated') return r.status === 'recruiting'
     return true
   })
 
@@ -92,7 +92,7 @@ export default function CompanyEvaluationsPage() {
               onClick={() => setFilter('completed')}
             >
               <i className="bi bi-clock-history me-2"></i>
-              評価待ち ({reservations.filter(r => r.status === 'completed').length})
+              評価待ち ({reservations.filter(r => r.status === 'confirmed').length})
             </button>
             <button
               type="button"
@@ -100,7 +100,7 @@ export default function CompanyEvaluationsPage() {
               onClick={() => setFilter('evaluated')}
             >
               <i className="bi bi-check-circle me-2"></i>
-              評価済み ({reservations.filter(r => r.status === 'evaluated').length})
+              評価済み ({reservations.filter(r => r.status === 'recruiting').length})
             </button>
             <button
               type="button"
@@ -166,7 +166,7 @@ export default function CompanyEvaluationsPage() {
                       <td>{reservation.staff_names || '未定'}</td>
                       <td>{reservation.employee_names || '未定'}</td>
                       <td>
-                        {reservation.status === 'completed' ? (
+                        {reservation.status === 'confirmed' ? (
                           <span className="badge bg-warning">
                             <i className="bi bi-clock-history me-1"></i>
                             評価待ち
@@ -180,7 +180,7 @@ export default function CompanyEvaluationsPage() {
                       </td>
                       <td>
                         <div className="btn-group btn-group-sm">
-                          {reservation.status === 'completed' ? (
+                          {reservation.status === 'confirmed' ? (
                             <Link
                               href={`/company/evaluations/${reservation.id}`}
                               className="btn btn-primary"

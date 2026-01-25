@@ -48,7 +48,9 @@ export default function TimeSlotDisplay({
     <div className="row g-3">
       {slots.map((slot) => {
         const earnings = calculateSlotEarnings(slot.duration)
-        const isAssigned = slot.is_filled && slot.employee_id
+        // 割り当て済み判定: is_filledがtrue、または名前が設定されている
+        // employee_idの有無に関わらず、名前があれば割り当て済みと判定
+        const isAssigned = slot.is_filled || slot.employee_name || slot.staff_name
 
         return (
           <div key={slot.slot} className="col-12 col-md-6 col-lg-4">

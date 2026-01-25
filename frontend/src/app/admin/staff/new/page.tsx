@@ -44,7 +44,10 @@ export default function NewStaffPage() {
 
     try {
       // 1. まずユーザーアカウントを作成
-      const userResponse = await fetch('http://localhost:8000/api/v1/users', {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1` 
+        : 'http://localhost:8000/api/v1'
+      const userResponse = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

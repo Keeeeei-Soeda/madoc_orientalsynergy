@@ -76,20 +76,24 @@ export default function StaffOffersPage() {
     
     try {
       setResponding(true)
-      await assignmentsApi.updateAssignment(assignmentId, {
-        status: accept ? 'confirmed' : 'rejected'
-      })
+      
+      // 新しいAPIエンドポイントを使用
+      if (accept) {
+        await assignmentsApi.acceptAssignment(assignmentId)
+      } else {
+        // 辞退APIを呼び出し（辞退理由なし）
+        await assignmentsApi.rejectAssignment(assignmentId)
+      }
       
       alert(accept ? 'オファーを受諾しました！' : 'オファーを辞退しました。')
       
-      // 一覧を再取得
-      await fetchOffers()
+      // ページを再読み込みしてバッジを更新
+      window.location.reload()
     } catch (err: any) {
       // エラーメッセージを表示（確定数が上限に達している場合など）
       const errorMessage = err?.data?.detail || err.message || '回答の送信に失敗しました'
       alert(errorMessage)
       console.error('回答送信エラー:', err)
-    } finally {
       setResponding(false)
     }
   }

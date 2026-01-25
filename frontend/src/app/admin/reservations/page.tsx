@@ -10,7 +10,7 @@ interface ReservationWithDetails extends Reservation {
   assigned_count?: number // アサイン済み人数
   confirmed_count?: number // 確定済み人数
   pending_count?: number // 回答待ち人数
-  company_name?: string // 企業名
+  company_name?: string // 企業名（フロント用）
   employee_filled_count?: number // 従業員が埋まっている枠数
 }
 
@@ -48,10 +48,12 @@ export default function AdminReservationsPage() {
             const availableSlots = totalSlots - assignedCount
             
             // 従業員の埋まり具合を計算
+            // employee_id、employee_name、is_filledのいずれかがあれば予約済みと判定
+            // （社員マスタから割り当て: employee_idあり、社員が直接登録: employee_nameあり）
             let employeeFilledCount = 0
             if (reservation.time_slots && Array.isArray(reservation.time_slots)) {
               employeeFilledCount = reservation.time_slots.filter((slot: any) => 
-                slot.employee_id !== null && slot.employee_id !== undefined
+                slot.is_filled || slot.employee_name || (slot.employee_id !== null && slot.employee_id !== undefined)
               ).length
             }
             
@@ -69,10 +71,12 @@ export default function AdminReservationsPage() {
             const totalSlots = reservation.slot_count || reservation.max_participants || 1
             
             // 従業員の埋まり具合を計算
+            // employee_id、employee_name、is_filledのいずれかがあれば予約済みと判定
+            // （社員マスタから割り当て: employee_idあり、社員が直接登録: employee_nameあり）
             let employeeFilledCount = 0
             if (reservation.time_slots && Array.isArray(reservation.time_slots)) {
               employeeFilledCount = reservation.time_slots.filter((slot: any) => 
-                slot.employee_id !== null && slot.employee_id !== undefined
+                slot.is_filled || slot.employee_name || (slot.employee_id !== null && slot.employee_id !== undefined)
               ).length
             }
             

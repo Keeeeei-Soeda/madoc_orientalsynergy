@@ -10,6 +10,7 @@ export interface User {
   name: string
   role: 'ADMIN' | 'COMPANY' | 'STAFF'
   is_active: boolean
+  company_id?: number  // 企業ユーザーの場合のみ
 }
 
 // 認証コンテキストの型定義
@@ -26,7 +27,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1` 
+  : 'http://localhost:8000/api/v1'
 
 // AuthProvider コンポーネント
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -40,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (token) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+          const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
@@ -49,13 +52,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (response.ok) {
             const userData = await response.json()
             setUser(userData)
+          } else if (response.status === 401) {
+            // トークンが無効な場合、リフレッシュトークンで再試行
+            const refreshToken = Cookies.get('refresh_token')
+            if (refreshToken) {
+              try {
+                const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refresh_token: refreshToken }),
+                })
+                
+                if (refreshResponse.ok) {
+                  const { access_token } = await refreshResponse.json()
+                  Cookies.set('access_token', access_token, { expires: 7 })
+                  
+                  // 新しいトークンでユーザー情報を再取得
+                  const retryResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${access_token}` },
+                  })
+                  
+                  if (retryResponse.ok) {
+                    const userData = await retryResponse.json()
+                    setUser(userData)
+                    setLoading(false)
+                    return
+                  }
+                }
+              } catch (refreshError) {
+                console.log('トークンリフレッシュ失敗')
+              }
+            }
+            
+            // リフレッシュ失敗時はトークンを削除
+            Cookies.remove('access_token')
+            Cookies.remove('refresh_token')
           } else {
-            // トークンが無効な場合は削除
+            // その他のエラーの場合も削除
             Cookies.remove('access_token')
             Cookies.remove('refresh_token')
           }
         } catch (error) {
-          console.error('認証初期化エラー:', error)
+          console.log('認証初期化エラー:', error)
           Cookies.remove('access_token')
           Cookies.remove('refresh_token')
         }
@@ -75,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       formData.append('username', email)
       formData.append('password', password)
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -97,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // ユーザー情報を取得
-      const userResponse = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+      const userResponse = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${data.access_token}`,
         },

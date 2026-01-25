@@ -31,6 +31,7 @@ class User(UserBase):
     """ユーザーレスポンススキーマ"""
     id: int
     is_active: bool
+    company_id: Optional[int] = None  # 企業ユーザーの場合のみ
     created_at: datetime
     updated_at: datetime
     

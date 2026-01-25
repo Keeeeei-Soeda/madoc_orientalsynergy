@@ -13,7 +13,8 @@ export default function StaffSearchPage() {
     name: '',
     minRating: '',
     is_available: true,
-    sortBy: 'rating'
+    sortBy: 'rating',
+    skills: [] as string[]
   })
   
   const [searchResults, setSearchResults] = useState<Staff[]>([])
@@ -75,9 +76,7 @@ export default function StaffSearchPage() {
   const handleParamChange = (name: string, value: string | boolean) => {
     setSearchParams(prev => ({
       ...prev,
-      skills: prev.skills.includes(skill)
-        ? prev.skills.filter(s => s !== skill)
-        : [...prev.skills, skill]
+      [name]: value
     }))
   }
   
@@ -184,7 +183,7 @@ export default function StaffSearchPage() {
               <button 
                 className="btn btn-outline-secondary w-100 mt-2"
                 onClick={() => {
-                  setSearchParams({ name: '', minRating: '', is_available: true, sortBy: 'rating' })
+                  setSearchParams({ name: '', minRating: '', is_available: true, sortBy: 'rating', skills: [] })
                   setSearchResults(allStaff)
                 }}
               >

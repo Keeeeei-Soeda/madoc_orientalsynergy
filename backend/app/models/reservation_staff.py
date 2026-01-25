@@ -12,6 +12,7 @@ class AssignmentStatus(str, enum.Enum):
     """アサインステータス"""
     PENDING = "pending"          # 承認待ち
     CONFIRMED = "confirmed"      # 確定
+    COMPLETED = "completed"      # 完了報告済み
     REJECTED = "rejected"        # 辞退
     CANCELLED = "cancelled"      # キャンセル
 

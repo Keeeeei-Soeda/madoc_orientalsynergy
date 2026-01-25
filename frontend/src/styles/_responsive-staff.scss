@@ -1,0 +1,614 @@
+// ============================================================================
+// レスポンシブスタイル - スタッフ側
+// ============================================================================
+
+// ブレークポイント定義
+$mobile: 767px;
+$tablet: 991px;
+
+// ============================================================================
+// モバイルヘッダー
+// ============================================================================
+
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  z-index: 1040;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  .mobile-menu-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.75rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    &:active {
+      opacity: 0.6;
+    }
+  }
+
+  .mobile-header-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+    text-align: center;
+  }
+
+  .mobile-header-actions {
+    width: 48px; // mobile-menu-btnと同じ幅でバランスを取る
+  }
+}
+
+// モバイルヘッダー表示時のコンテンツ調整
+@media (max-width: $tablet) {
+  // main-contentに直接パディングを追加
+  .main-content {
+    padding-top: 1rem !important; // モバイルヘッダーの分のパディングを追加
+  }
+  
+  .staff-layout-content {
+    padding-top: 0 !important; // 二重にパディングがつかないように
+  }
+  
+  // main-wrapperをフル幅に
+  .main-wrapper {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-top: 56px; // モバイルヘッダーの高さ分のパディング
+  }
+  
+  // PC用のサイドバー幅調整を無効化
+  .admin-layout {
+    .sidebar {
+      // タブレット以下では初期状態で完全に非表示
+      transform: translateX(-100%);
+      
+      &.mobile-open {
+        transform: translateX(0);
+      }
+    }
+  }
+}
+
+// ============================================================================
+// サイドバーのモバイル対応
+// ============================================================================
+
+@media (max-width: $tablet) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px; // 初期状態は画面外（非表示）
+    width: 280px;
+    height: 100vh;
+    z-index: 1050;
+    transition: left 0.3s ease-in-out;
+    overflow-y: auto;
+    background: white; // 背景色を明示的に設定
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15); // 影を追加
+
+    &.mobile-open {
+      left: 0; // メニューを開いた時のみ表示
+    }
+    
+    // モバイルではフォントサイズを調整
+    nav ul li a {
+      font-size: 0.9375rem; // フォントサイズを小さく
+      padding: 0.875rem 1rem; // パディングを調整
+      gap: 0.5rem !important; // アイコンとテキストの間隔
+    }
+  }
+
+  // オーバーレイ背景
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1045;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+
+    &.active {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+}
+
+// ============================================================================
+// フォントサイズの調整
+// ============================================================================
+
+@media (max-width: $tablet) {
+  h1, .h1 { font-size: 1.5rem; }
+  h2, .h2 { font-size: 1.25rem; }
+  h3, .h3 { font-size: 1.125rem; }
+  h4, .h4 { font-size: 1rem; }
+  h5, .h5 { font-size: 0.9375rem; }
+  h6, .h6 { font-size: 0.875rem; }
+  
+  .card-title {
+    font-size: 1rem;
+  }
+  
+  .card-text {
+    font-size: 0.9375rem;
+  }
+  
+  small, .small {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: $mobile) {
+  h1, .h1 { font-size: 1.25rem; }
+  h2, .h2 { font-size: 1.125rem; }
+  h3, .h3 { font-size: 1rem; }
+  h4, .h4 { font-size: 0.9375rem; }
+  h5, .h5 { font-size: 0.875rem; }
+  h6, .h6 { font-size: 0.8125rem; }
+  
+  body {
+    font-size: 0.875rem;
+  }
+  
+  .card-title {
+    font-size: 0.9375rem;
+  }
+  
+  .card-text {
+    font-size: 0.875rem;
+  }
+  
+  small, .small {
+    font-size: 0.75rem;
+  }
+}
+
+// ============================================================================
+// パディング・マージンの調整
+// ============================================================================
+
+@media (max-width: $tablet) {
+  .card {
+    margin-bottom: 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .card-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .container, .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: $mobile) {
+  .card {
+    margin-bottom: 0.75rem;
+  }
+  
+  .card-body {
+    padding: 0.75rem;
+  }
+  
+  .card-header {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .container, .container-fluid {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  // マージンユーティリティの調整
+  .mb-4 {
+    margin-bottom: 1rem !important;
+  }
+  
+  .mb-3 {
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .g-4 {
+    --bs-gutter-x: 0.75rem;
+    --bs-gutter-y: 0.75rem;
+  }
+  
+  .g-3 {
+    --bs-gutter-x: 0.5rem;
+    --bs-gutter-y: 0.5rem;
+  }
+}
+
+// ============================================================================
+// ボタンの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+  }
+  
+  .btn-lg {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+  }
+}
+
+// ============================================================================
+// テーブルのカード形式変換
+// ============================================================================
+
+@media (max-width: $tablet) {
+  .table-responsive-cards {
+    .table {
+      display: none; // テーブルを非表示
+    }
+    
+    .mobile-card-list {
+      display: block;
+    }
+  }
+}
+
+@media (min-width: 992px) {
+  .mobile-card-list {
+    display: none; // PC表示時はカードリストを非表示
+  }
+}
+
+// ============================================================================
+// 給与明細テーブルのモバイル対応
+// ============================================================================
+
+@media (max-width: 767px) {
+  .earnings-table {
+    font-size: 0.7rem !important; // フォントサイズを小さく (11.2px)
+    table-layout: fixed; // 固定レイアウトで列幅を制御
+    width: 100%; // テーブル全体の幅
+    
+    th, td {
+      padding: 0.375rem 0.25rem !important; // パディングを小さく
+      white-space: nowrap; // 改行を防ぐ
+    }
+    
+    th {
+      font-size: 0.65rem !important; // ヘッダーはさらに小さく (10.4px)
+      font-weight: 600;
+    }
+    
+    // 予約日の列 (1列目) - 幅: 約25%
+    th:first-child,
+    td:first-child {
+      width: 25% !important;
+      font-size: 0.65rem !important; // 日付を小さく
+    }
+    
+    // 事業所名の列 (2列目) - 幅: 約45% (大きく)
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 45% !important;
+      font-size: 0.65rem !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    // 時間の列 (3列目) - 幅: 約15% (小さく)
+    th:nth-child(3),
+    td:nth-child(3) {
+      width: 15% !important;
+      font-size: 0.65rem !important;
+    }
+    
+    // 報酬の列 (最後の列) - 幅: 約15%
+    th:last-child,
+    td:last-child {
+      width: 15% !important;
+      font-size: 0.7rem !important;
+      font-weight: 600 !important;
+    }
+    
+    // フッターの合計行
+    tfoot {
+      tr {
+        td {
+          font-size: 0.75rem !important;
+          padding: 0.5rem 0.25rem !important;
+        }
+        
+        td:last-child {
+          font-size: 0.875rem !important; // 合計金額は少し大きく
+        }
+      }
+    }
+  }
+}
+
+// タブレット用 (768px - 991px)
+@media (min-width: 768px) and (max-width: $tablet) {
+  .earnings-table {
+    font-size: 0.8rem !important;
+    
+    th, td {
+      padding: 0.5rem 0.5rem !important;
+    }
+  }
+}
+
+// モバイルカードリストのコンテナ
+.mobile-card-list {
+  padding: 1rem;
+}
+
+// モバイルカードのスタイル
+.mobile-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  &.today {
+    background: #fff3cd;
+    border-color: #ffc107;
+  }
+  
+  .mobile-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  .mobile-card-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+  
+  .mobile-card-value {
+    font-size: 0.875rem;
+    color: #212529;
+    
+    &.primary {
+      font-weight: 600;
+      font-size: 1rem;
+      color: #0d6efd;
+    }
+  }
+  
+  .mobile-card-actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    gap: 0.5rem;
+    flex-direction: column;
+    
+    .btn {
+      width: 100%;
+    }
+  }
+}
+
+// モバイルでボタンを縦積みに
+@media (max-width: $mobile) {
+  .mobile-card {
+    padding: 0.875rem;
+    
+    .mobile-card-actions {
+      .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem;
+      }
+    }
+  }
+}
+
+// ============================================================================
+// 統計カードの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .stat-card {
+    .stat-card-value {
+      font-size: 1.75rem;
+    }
+    
+    .stat-card-title {
+      font-size: 0.8125rem;
+    }
+    
+    .stat-card-icon {
+      font-size: 2rem;
+    }
+  }
+}
+
+// ============================================================================
+// PageHeaderの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .page-header {
+    margin-bottom: 1rem;
+    
+    .page-header-title {
+      font-size: 1.25rem;
+    }
+    
+    .breadcrumb {
+      font-size: 0.8125rem;
+    }
+  }
+}
+
+// ============================================================================
+// モーダルの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+  
+  .modal-header {
+    padding: 0.75rem 1rem;
+    
+    .modal-title {
+      font-size: 1rem;
+    }
+  }
+  
+  .modal-body {
+    padding: 1rem;
+  }
+  
+  .modal-footer {
+    padding: 0.75rem 1rem;
+    
+    .btn {
+      padding: 0.375rem 0.75rem;
+    }
+  }
+}
+
+// ============================================================================
+// グリッドレイアウトの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  // 統計カードを1列表示
+  .row.g-3 > .col-12.col-sm-6.col-xl-3 {
+    margin-bottom: 0.75rem;
+  }
+}
+
+// ============================================================================
+// アラートの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .alert {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    
+    .alert-heading {
+      font-size: 1rem;
+    }
+  }
+}
+
+// ============================================================================
+// バッジの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.25em 0.5em;
+  }
+}
+
+// ============================================================================
+// リストグループの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .list-group-item {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+// ============================================================================
+// フォームの調整
+// ============================================================================
+
+@media (max-width: $mobile) {
+  .form-control, .form-select {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .form-label {
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+  }
+  
+  .input-group-text {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+// ============================================================================
+// ユーティリティクラス
+// ============================================================================
+
+// モバイルのみ表示
+.d-mobile-only {
+  display: none !important;
+  
+  @media (max-width: $tablet) {
+    display: block !important;
+  }
+}
+
+// PC/タブレットのみ表示
+.d-desktop-only {
+  display: block !important;
+  
+  @media (max-width: $tablet) {
+    display: none !important;
+  }
+}
+

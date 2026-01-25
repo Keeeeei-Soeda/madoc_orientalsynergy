@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from ...database import get_db
-from ...models.user import User
+from ...models.user import User, UserRole
 from ...schemas.token import Token, RefreshTokenRequest
 from ...schemas.user import User as UserSchema
 from ...core.security import (
@@ -157,17 +157,41 @@ def logout(current_user: User = Depends(get_current_active_user)):
 
 
 @router.get("/auth/me", response_model=UserSchema)
-def get_me(current_user: User = Depends(get_current_active_user)):
+def get_me(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """
     現在のログインユーザー情報を取得
     
     Args:
         current_user: 現在のユーザー
+        db: データベースセッション
         
     Returns:
-        User: ユーザー情報
+        User: ユーザー情報（企業ユーザーの場合はcompany_idを含む）
     """
-    return current_user
+    # 企業ユーザーの場合、company_idを取得
+    company_id = None
+    if current_user.role == UserRole.COMPANY:
+        from ...models.company import Company
+        company = db.query(Company).filter(Company.user_id == current_user.id).first()
+        if company:
+            company_id = company.id
+    
+    # ユーザー情報をdictに変換してcompany_idを追加
+    user_dict = {
+        "id": current_user.id,
+        "email": current_user.email,
+        "name": current_user.name,
+        "role": current_user.role,
+        "is_active": current_user.is_active,
+        "company_id": company_id,
+        "created_at": current_user.created_at,
+        "updated_at": current_user.updated_at
+    }
+    
+    return user_dict
 
 
 

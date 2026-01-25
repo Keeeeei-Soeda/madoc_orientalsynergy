@@ -16,7 +16,7 @@ class StaffBase(BaseModel):
     available_days: Optional[str] = None
     line_id: Optional[str] = None
     is_available: bool = True
-    rating: Optional[int] = None
+    rating: Optional[float] = None  # float型に修正（平均評価は小数点を含む）
     notes: Optional[str] = None
 
 

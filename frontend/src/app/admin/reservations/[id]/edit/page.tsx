@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import PageHeader from '@/components/common/PageHeader'
-import { reservationsApi, companiesApi, Company, Reservation, ReservationUpdate } from '@/lib/api'
+import { reservationsApi, companiesApi, Company, Reservation, ReservationCreate } from '@/lib/api'
 import TimeSlotEditor from '@/components/reservations/TimeSlotEditor'
 import { TimeSlot } from '@/utils/timeSlotValidator'
 
@@ -168,7 +168,7 @@ export default function EditReservationPage() {
       setSaving(true)
       // 日付フォーマットを変換 (YYYY-MM-DD → YYYY/MM/DD)
       const formattedDate = formData.reservation_date?.replace(/-/g, '/')
-      const updateData: ReservationUpdate = {
+      const updateData: Partial<ReservationCreate> = {
         office_name: formData.office_name,
         office_address: formData.office_address,
         reservation_date: formattedDate,
@@ -543,7 +543,7 @@ export default function EditReservationPage() {
                   <button 
                     type="submit" 
                     className="btn btn-primary"
-                    disabled={saving || (formData.max_participants && formData.slot_count && formData.max_participants > formData.slot_count)}
+                    disabled={saving || !!(formData.max_participants && formData.slot_count && formData.max_participants > formData.slot_count)}
                   >
                     {saving ? (
                       <>

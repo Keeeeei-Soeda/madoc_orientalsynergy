@@ -274,10 +274,6 @@ export default function CompanyDetailPage({ params }: { params: Promise<{ id: st
                     <td className="fw-bold">{companyData.usage_count || 0}回</td>
                   </tr>
                   <tr>
-                    <th>累計金額</th>
-                    <td>¥{companyData.totalAmount.toLocaleString()}</td>
-                  </tr>
-                  <tr>
                     <th>備考</th>
                     <td>{companyData.notes}</td>
                   </tr>

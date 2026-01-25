@@ -36,6 +36,13 @@ export default function EvaluationFormPage({ params }: { params: Promise<{ id: s
         const reservationData = await reservationsApi.getById(reservationId)
         setReservation(reservationData)
         
+        // 既に評価済みの場合はエラー
+        if (reservationData.status === 'evaluated' || reservationData.status === 'closed') {
+          setError('この予約は既に評価済みです')
+          setLoading(false)
+          return
+        }
+        
         // 企業IDを取得
         if (user) {
           const companies = await companiesApi.getAll()
@@ -119,16 +126,28 @@ export default function EvaluationFormPage({ params }: { params: Promise<{ id: s
             reservation_id: reservationId,
             company_id: companyId,
             staff_id: staffId,
-            rating: ratingData.rating,
+            cleanliness: ratingData.rating,
+            responsiveness: ratingData.rating,
+            satisfaction: ratingData.rating,
+            punctuality: ratingData.rating,
+            skill: ratingData.rating,
             comment: ratingData.comment || undefined
           })
         }
       }
       
-      // 予約ステータスを「評価済み」に更新
-      await reservationsApi.update(reservationId, {
-        status: 'evaluated'
+      // すべてのスタッフの評価が完了したかチェック
+      const allRated = assignments.every(assignment => {
+        const rating = ratings[assignment.staff_id]
+        return rating && rating.rating > 0
       })
+      
+      // すべてのスタッフの評価が完了した場合のみ、ステータスを「評価済み」に更新
+      if (allRated) {
+        await reservationsApi.update(reservationId, {
+          status: 'evaluated'
+        })
+      }
       
       alert('評価を送信しました')
       router.push('/company/evaluations')

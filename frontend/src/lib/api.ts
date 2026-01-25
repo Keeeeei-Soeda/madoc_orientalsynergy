@@ -5,7 +5,9 @@
 
 import Cookies from 'js-cookie'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1` 
+  : 'http://localhost:8000/api/v1';
 
 /**
  * APIリクエストのオプション型
@@ -37,9 +39,9 @@ async function request<T>(
 ): Promise<T> {
   const { token, ...fetchOptions } = options;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
   // トークンが指定されていない場合、Cookieから自動取得
@@ -54,17 +56,65 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    // 401エラーの場合、ログアウトさせる
+    // 401エラーの場合、リフレッシュトークンで再試行
     if (response.status === 401) {
+      const refreshToken = Cookies.get('refresh_token');
+      
+      // リフレッシュトークンがある場合は再試行
+      if (refreshToken && !endpoint.includes('/auth/')) {
+        try {
+          const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+          
+          if (refreshResponse.ok) {
+            const { access_token } = await refreshResponse.json();
+            Cookies.set('access_token', access_token, { expires: 7 });
+            
+            // 新しいトークンで再リクエスト
+            headers['Authorization'] = `Bearer ${access_token}`;
+            const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+              ...fetchOptions,
+              headers,
+            });
+            
+            if (retryResponse.ok) {
+              const text = await retryResponse.text();
+              return text ? JSON.parse(text) : null as T;
+            }
+          }
+        } catch (refreshError) {
+          // リフレッシュ失敗時はログアウト処理へ
+          console.log('トークンリフレッシュ失敗:', refreshError);
+        }
+      }
+      
+      // リフレッシュトークンがないか、リフレッシュ失敗した場合
       Cookies.remove('access_token');
       Cookies.remove('refresh_token');
-      // ログインページにリダイレクト
-      if (typeof window !== 'undefined') {
+      
+      // ログインページにリダイレクト（ログインページ自体でない場合のみ）
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
     }
 
     const errorData = await response.json().catch(() => ({}));
+    
+    // 404エラーは静かに処理（未実装機能の可能性）
+    if (response.status === 404) {
+      console.debug(`API endpoint not found: ${endpoint}`);
+      // 404エラーの場合は空の配列またはnullを返す（呼び出し側で適切に処理）
+      // ただし、エラーをthrowしないと型エラーになる可能性があるため、特別なエラーをthrow
+      throw new ApiError(
+        `Endpoint not found: ${endpoint}`,
+        response.status,
+        errorData
+      );
+    }
+    
     throw new ApiError(
       errorData.detail || `API Error: ${response.status}`,
       response.status,
@@ -134,14 +184,20 @@ export const usersApi = {
 export interface Company {
   id: number;
   user_id: number;
-  company_name: string;
-  address: string;
-  phone: string;
-  representative_name: string;
+  company_name: string;  // バックエンドから返されるフィールド名
+  office_name: string;
+  industry: string;
+  plan: string;
   contract_start_date: string;
   contract_end_date?: string;
-  usage_status: string;
-  line_id?: string;
+  usage_count: number;
+  representative_name: string;  // バックエンドから返されるフィールド名
+  address: string;
+  phone: string;
+  email: string;
+  contact_person?: string;
+  contact_phone?: string;
+  contact_email?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -388,6 +444,7 @@ export interface EmployeeRegistration {
   phone?: string;
   email?: string;
   notes?: string;
+  slot_number?: number;  // 社員が選択した枠番号（1始まり）
 }
 
 export const reservationsApi = {
@@ -448,6 +505,20 @@ export interface Assignment {
   assigned_at: string;
   slot_number?: number;  // 追加: スタッフが選択した枠番号
   notes?: string;
+  reservation?: {
+    id: number;
+    company_id: number;
+    company_name?: string;
+    office_name: string;
+    office_address?: string;
+    reservation_date: string;
+    start_time: string;
+    end_time: string;
+    hourly_rate?: number;
+    status: ReservationStatus;
+    time_slots?: Array<any>;
+    [key: string]: any;
+  };
 }
 
 export interface AssignmentCreate {
@@ -492,6 +563,15 @@ export const assignmentsApi = {
   deleteAssignment: (assignmentId: number) =>
     request<void>(`/assignments/${assignmentId}`, {
       method: 'DELETE',
+    }),
+  acceptAssignment: (assignmentId: number) =>
+    request<{ success: boolean; message: string; assignment_id: number; status: string }>(`/assignments/${assignmentId}/accept`, {
+      method: 'POST',
+    }),
+  rejectAssignment: (assignmentId: number, rejectionReason?: string) =>
+    request<{ success: boolean; message: string; assignment_id: number; status: string }>(`/assignments/${assignmentId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason: rejectionReason || '' }),
     }),
 };
 
@@ -688,6 +768,10 @@ export const ratingsApi = {
     return request<Rating[]>(`/ratings?${query.toString()}`);
   },
   getById: (id: number) => request<Rating>(`/ratings/${id}`),
+  checkExists: (reservationId: number, staffId: number) =>
+    request<{ exists: boolean; rating_id: number | null }>(
+      `/ratings/check/${reservationId}/${staffId}`
+    ),
   create: (data: RatingCreate) =>
     request<Rating>('/ratings', {
       method: 'POST',

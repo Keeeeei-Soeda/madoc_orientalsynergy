@@ -46,15 +46,15 @@ export default function StaffHeader() {
       </div>
       
       <div className="d-flex align-items-center gap-3">
-        {/* 通知アイコン */}
-        <div className="position-relative">
+        {/* 通知アイコン（未実装のため非表示） */}
+        {/* <div className="position-relative">
           <button className="btn btn-sm btn-light">
             <i className="bi bi-bell"></i>
             <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
               3
             </span>
           </button>
-        </div>
+        </div> */}
         
         {/* ユーザーメニュー */}
         {user && (

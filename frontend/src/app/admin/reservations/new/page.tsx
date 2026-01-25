@@ -150,7 +150,7 @@ export default function NewReservationPage() {
     }
     
     // 募集人数と予約枠数のバリデーション
-    if (formData.max_participants > formData.slot_count) {
+    if (formData.max_participants > (formData.slot_count || 1)) {
       alert(`募集人数（${formData.max_participants}名）が予約枠数（${formData.slot_count}枠）を超えています。\n募集人数は予約枠数以下に設定してください。`)
       return
     }
@@ -358,20 +358,20 @@ export default function NewReservationPage() {
                       type="number"
                       id="max_participants"
                       name="max_participants"
-                      className={`form-control ${formData.max_participants > formData.slot_count ? 'is-invalid' : ''}`}
+                      className={`form-control ${formData.max_participants > (formData.slot_count || 1) ? 'is-invalid' : ''}`}
                       value={formData.max_participants}
                       onChange={handleChange}
                       min="1"
                       max="50"
                       required
                     />
-                    {formData.max_participants > formData.slot_count ? (
+                    {formData.max_participants > (formData.slot_count || 1) ? (
                       <div className="invalid-feedback d-block">
                         <i className="bi bi-exclamation-triangle me-1"></i>
-                        募集人数（{formData.max_participants}名）が予約枠数（{formData.slot_count}枠）を超えています
+                        募集人数（{formData.max_participants}名）が予約枠数（{formData.slot_count || 1}枠）を超えています
                       </div>
                     ) : (
-                      <small className="text-muted">マッサージを受ける社員の募集人数を指定してください（予約枠数: {formData.slot_count}枠）</small>
+                      <small className="text-muted">マッサージを受ける社員の募集人数を指定してください（予約枠数: {formData.slot_count || 1}枠）</small>
                     )}
                   </div>
                   
@@ -386,7 +386,7 @@ export default function NewReservationPage() {
                     </div>
                   </div>
                   
-                  {formData.max_participants > formData.slot_count && (
+                  {formData.max_participants > (formData.slot_count || 1) && (
                     <div className="col-12">
                       <div className="alert alert-danger mb-0">
                         <i className="bi bi-exclamation-triangle-fill me-2"></i>
@@ -471,7 +471,7 @@ export default function NewReservationPage() {
                   <button 
                     type="submit" 
                     className="btn btn-primary"
-                    disabled={loading || formData.max_participants > formData.slot_count}
+                    disabled={loading || formData.max_participants > (formData.slot_count || 1)}
                   >
                     {loading ? (
                       <>

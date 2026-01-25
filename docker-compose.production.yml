@@ -1,0 +1,167 @@
+# ============================================================================
+# オリエンタルシナジー 本番環境 Docker Compose
+# PostgreSQL + FastAPI + Next.js
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # PostgreSQL データベース
+  postgres:
+    image: postgres:15-alpine
+    container_name: oriental_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oriental_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oriental_pass_prod}
+      POSTGRES_DB: ${POSTGRES_DB:-oriental_db}
+      TZ: Asia/Tokyo
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oriental_user} -d ${POSTGRES_DB:-oriental_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - oriental_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis キャッシュ・セッション管理
+  redis:
+    image: redis:7-alpine
+    container_name: oriental_redis_prod
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-oriental_redis_pass_prod}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - oriental_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI バックエンド
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: oriental_backend_prod
+    restart: always
+    environment:
+      # データベース設定
+      DATABASE_URL: postgresql://${POSTGRES_USER:-oriental_user}:${POSTGRES_PASSWORD:-oriental_pass_prod}@postgres:5432/${POSTGRES_DB:-oriental_db}
+      USE_SQLITE: "false"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-oriental_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-oriental_pass_prod}
+      DB_NAME: ${POSTGRES_DB:-oriental_db}
+      # Redis設定
+      REDIS_URL: redis://:${REDIS_PASSWORD:-oriental_redis_pass_prod}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # アプリケーション設定
+      ENVIRONMENT: production
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      # CORS設定
+      BACKEND_CORS_ORIGINS: ${ALLOWED_ORIGINS:-http://162.43.15.173:3000,http://localhost:3000}
+    env_file:
+      - ./backend/.env.production
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - oriental_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Next.js フロントエンド
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - NODE_ENV=production
+    container_name: oriental_frontend_prod
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://162.43.15.173:8000}
+      - NEXT_PUBLIC_LINE_LIFF_ID=${NEXT_PUBLIC_LINE_LIFF_ID:-}
+    env_file:
+      - ./frontend/.env.production
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - oriental_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_logs:
+    driver: local
+
+networks:
+  oriental_network:
+    driver: bridge
+

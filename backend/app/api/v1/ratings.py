@@ -42,6 +42,29 @@ def get_rating(rating_id: int, db: Session = Depends(get_db)):
     return rating
 
 
+@router.get("/ratings/check/{reservation_id}/{staff_id}")
+def check_rating_exists(
+    reservation_id: int,
+    staff_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    指定された予約・スタッフの組み合わせで評価が既に存在するかチェック
+    
+    Returns:
+        dict: {"exists": bool, "rating_id": int | None}
+    """
+    rating = db.query(RatingModel).filter(
+        RatingModel.reservation_id == reservation_id,
+        RatingModel.staff_id == staff_id
+    ).first()
+    
+    return {
+        "exists": rating is not None,
+        "rating_id": rating.id if rating else None
+    }
+
+
 @router.post("/ratings", response_model=Rating, status_code=status.HTTP_201_CREATED)
 def create_rating(rating: RatingCreate, db: Session = Depends(get_db)):
     """評価を作成"""
@@ -49,6 +72,18 @@ def create_rating(rating: RatingCreate, db: Session = Depends(get_db)):
     staff = db.query(StaffModel).filter(StaffModel.id == rating.staff_id).first()
     if not staff:
         raise HTTPException(status_code=404, detail="スタッフが見つかりません")
+    
+    # 既に評価済みかチェック（同じ予約・スタッフの組み合わせ）
+    existing_rating = db.query(RatingModel).filter(
+        RatingModel.reservation_id == rating.reservation_id,
+        RatingModel.staff_id == rating.staff_id
+    ).first()
+    
+    if existing_rating:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="この予約・スタッフの組み合わせは既に評価済みです"
+        )
     
     # 平均評価を計算
     average = (

@@ -9,7 +9,7 @@ from ...models.reservation_staff import ReservationStaff, AssignmentStatus
 from ...models.reservation import Reservation as ReservationModel
 from ...models.staff import Staff as StaffModel
 from ...models.company import Company as CompanyModel
-from ...models.user import User
+from ...models.user import User, UserRole
 from ..deps import get_current_active_user
 from pydantic import BaseModel
 
@@ -126,7 +126,11 @@ def get_my_assignments(
 
 
 @router.get("/assignments/{assignment_id}", response_model=AssignmentResponse)
-def get_assignment_by_id(assignment_id: int, db: Session = Depends(get_db)):
+def get_assignment_by_id(
+    assignment_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """アサインメントIDで単一のアサインメントを取得"""
     assignment = db.query(ReservationStaff).filter(
         ReservationStaff.id == assignment_id
@@ -135,39 +139,59 @@ def get_assignment_by_id(assignment_id: int, db: Session = Depends(get_db)):
     if not assignment:
         raise HTTPException(status_code=404, detail="アサインメントが見つかりません")
     
-    # スタッフ情報を取得
-    staff = db.query(StaffModel).filter(StaffModel.id == assignment.staff_id).first()
-    staff_name = staff.name if staff else None
-    
     # 予約情報を取得
     reservation = db.query(ReservationModel).filter(
         ReservationModel.id == assignment.reservation_id
     ).first()
     
-    reservation_summary = None
-    if reservation:
-        company = db.query(CompanyModel).filter(CompanyModel.id == reservation.company_id).first()
-        
-        # time_slotsをパース
-        time_slots_data = None
-        if reservation.time_slots:
-            if isinstance(reservation.time_slots, str):
-                import json
-                time_slots_data = json.loads(reservation.time_slots)
-            else:
-                time_slots_data = reservation.time_slots
-        
-        reservation_summary = ReservationSummary(
-            id=reservation.id,
-            company_name=company.name if company else None,
-            office_name=reservation.office_name,
-            office_address=reservation.office_address,
-            reservation_date=reservation.reservation_date,
-            start_time=reservation.start_time,
-            end_time=reservation.end_time,
-            hourly_rate=reservation.hourly_rate,
-            time_slots=time_slots_data
-        )
+    if not reservation:
+        raise HTTPException(status_code=404, detail="予約が見つかりません")
+    
+    # 権限チェック: 企業ユーザーは自社の予約のみアクセス可能
+    if current_user.role == UserRole.COMPANY:
+        # user_idから企業を取得
+        company = db.query(CompanyModel).filter(CompanyModel.user_id == current_user.id).first()
+        if not company or company.id != reservation.company_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="この予約にアクセスする権限がありません"
+            )
+    # スタッフユーザーは自分のアサインメントのみアクセス可能
+    elif current_user.role == UserRole.STAFF:
+        staff = db.query(StaffModel).filter(StaffModel.user_id == current_user.id).first()
+        if not staff or staff.id != assignment.staff_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="このアサインメントにアクセスする権限がありません"
+            )
+    
+    # スタッフ情報を取得
+    staff = db.query(StaffModel).filter(StaffModel.id == assignment.staff_id).first()
+    staff_name = staff.name if staff else None
+    
+    # 予約サマリーを構築
+    company = db.query(CompanyModel).filter(CompanyModel.id == reservation.company_id).first()
+    
+    # time_slotsをパース
+    time_slots_data = None
+    if reservation.time_slots:
+        if isinstance(reservation.time_slots, str):
+            import json
+            time_slots_data = json.loads(reservation.time_slots)
+        else:
+            time_slots_data = reservation.time_slots
+    
+    reservation_summary = ReservationSummary(
+        id=reservation.id,
+        company_name=company.name if company else None,
+        office_name=reservation.office_name,
+        office_address=reservation.office_address,
+        reservation_date=reservation.reservation_date,
+        start_time=reservation.start_time,
+        end_time=reservation.end_time,
+        hourly_rate=reservation.hourly_rate,
+        time_slots=time_slots_data
+    )
     
     return AssignmentResponse(
         id=assignment.id,
@@ -177,7 +201,7 @@ def get_assignment_by_id(assignment_id: int, db: Session = Depends(get_db)):
         slot_number=assignment.slot_number,
         status=assignment.status,
         assigned_by=assignment.assigned_by,
-        assigned_at=assignment.assigned_at,
+        assigned_at=assignment.assigned_at.isoformat() if assignment.assigned_at else None,
         notes=assignment.notes,
         reservation=reservation_summary
     )
@@ -397,4 +421,123 @@ def get_staff_assignments(staff_id: int, db: Session = Depends(get_db)):
         ))
     
     return result
+
+
+class RejectRequest(BaseModel):
+    """辞退リクエスト"""
+    rejection_reason: Optional[str] = None
+
+
+@router.post("/assignments/{assignment_id}/accept")
+def accept_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """アサインを受託（スタッフのみ）"""
+    # アサインメントを取得
+    assignment = db.query(ReservationStaff).filter(
+        ReservationStaff.id == assignment_id
+    ).first()
+    
+    if not assignment:
+        raise HTTPException(status_code=404, detail="アサインメントが見つかりません")
+    
+    # スタッフユーザーのみアクセス可能
+    if current_user.role != UserRole.STAFF:
+        raise HTTPException(
+            status_code=403,
+            detail="スタッフのみがアサインを受託できます"
+        )
+    
+    # ログイン中のスタッフのIDを取得
+    staff = db.query(StaffModel).filter(StaffModel.user_id == current_user.id).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="スタッフ情報が見つかりません")
+    
+    # 自分のアサインメントのみ受託可能
+    if assignment.staff_id != staff.id:
+        raise HTTPException(
+            status_code=403,
+            detail="自分のアサインメントのみ受託できます"
+        )
+    
+    # PENDING状態のみ受託可能
+    if assignment.status != AssignmentStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"受託可能な状態ではありません。現在のステータス: {assignment.status.value}"
+        )
+    
+    # ステータスをCONFIRMEDに変更
+    assignment.status = AssignmentStatus.CONFIRMED
+    db.commit()
+    db.refresh(assignment)
+    
+    return {
+        "success": True,
+        "message": "業務を受託しました",
+        "assignment_id": assignment.id,
+        "status": assignment.status.value
+    }
+
+
+@router.post("/assignments/{assignment_id}/reject")
+def reject_assignment(
+    assignment_id: int,
+    reject_request: RejectRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """アサインを辞退（スタッフのみ）"""
+    # アサインメントを取得
+    assignment = db.query(ReservationStaff).filter(
+        ReservationStaff.id == assignment_id
+    ).first()
+    
+    if not assignment:
+        raise HTTPException(status_code=404, detail="アサインメントが見つかりません")
+    
+    # スタッフユーザーのみアクセス可能
+    if current_user.role != UserRole.STAFF:
+        raise HTTPException(
+            status_code=403,
+            detail="スタッフのみがアサインを辞退できます"
+        )
+    
+    # ログイン中のスタッフのIDを取得
+    staff = db.query(StaffModel).filter(StaffModel.user_id == current_user.id).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="スタッフ情報が見つかりません")
+    
+    # 自分のアサインメントのみ辞退可能
+    if assignment.staff_id != staff.id:
+        raise HTTPException(
+            status_code=403,
+            detail="自分のアサインメントのみ辞退できます"
+        )
+    
+    # PENDING状態のみ辞退可能
+    if assignment.status != AssignmentStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"辞退可能な状態ではありません。現在のステータス: {assignment.status.value}"
+        )
+    
+    # ステータスをREJECTEDに変更
+    assignment.status = AssignmentStatus.REJECTED
+    # 辞退理由をnotesに追加
+    if reject_request.rejection_reason:
+        existing_notes = assignment.notes or ""
+        assignment.notes = f"{existing_notes}\n[辞退理由] {reject_request.rejection_reason}".strip()
+    
+    db.commit()
+    db.refresh(assignment)
+    
+    return {
+        "success": True,
+        "message": "業務を辞退しました",
+        "assignment_id": assignment.id,
+        "status": assignment.status.value
+    }
 

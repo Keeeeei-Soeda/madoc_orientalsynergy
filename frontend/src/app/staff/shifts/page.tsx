@@ -13,6 +13,7 @@ export default function StaffShiftsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'completed'>('upcoming')
+  const [currentPage, setCurrentPage] = useState(1)
   
   useEffect(() => {
     const fetchAssignments = async () => {
@@ -25,20 +26,23 @@ export default function StaffShiftsPage() {
         // 方法1: getMyAssignments() を試す
         try {
           const data = await assignmentsApi.getMyAssignments()
-          console.log('getMyAssignments結果:', data)
           
           if (data && data.length > 0) {
             // 確定済みと完了済みのアサインのみフィルタ
             const relevantAssignments = data.filter(a => 
-              a.status === 'confirmed' || a.status === 'completed'
+              a.status === 'confirmed'
             )
-            console.log('フィルタ後のデータ件数:', relevantAssignments.length)
             setAssignments(relevantAssignments)
             setLoading(false)
             return
           }
         } catch (err) {
-          console.log('getMyAssignments失敗、代替方法を試します:', err)
+          // 404エラー（未実装）の場合は静かに代替方法へ
+          if (err instanceof Error && err.message.includes('404')) {
+            // 代替方法を試す
+          } else {
+            console.error('getMyAssignments失敗:', err)
+          }
         }
 
         // 方法2: オファー画面と同じ方法（代替）
@@ -52,18 +56,21 @@ export default function StaffShiftsPage() {
         }
 
         const data = await assignmentsApi.getStaffAssignments(currentStaff.id)
-        console.log('getStaffAssignments結果:', data)
         
         // 確定済みと完了済みのアサインのみフィルタ
         const relevantAssignments = data.filter(a => 
-          a.status === 'confirmed' || a.status === 'completed'
+          a.status === 'confirmed'
         )
         
-        console.log('フィルタ後のデータ件数:', relevantAssignments.length)
         setAssignments(relevantAssignments)
 
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'データの取得に失敗しました')
+        // 404エラーの場合は空データを表示（エラーメッセージは表示しない）
+        if (err instanceof Error && err.message.includes('404')) {
+          setAssignments([])
+        } else {
+          setError(err instanceof Error ? err.message : 'データの取得に失敗しました')
+        }
         console.error('シフトデータ取得エラー:', err)
       } finally {
         setLoading(false)
@@ -82,19 +89,32 @@ export default function StaffShiftsPage() {
       // 今後の予定: 確定済み（confirmed）のみ
       return assignment.status === 'confirmed'
     } else if (filterStatus === 'completed') {
-      // 完了済み: 完了報告済み（completed）のみ
-      return assignment.status === 'completed'
+      // 完了済み: 完了報告済みのマーカーがあるもの（現在の実装では confirmed のみ）
+      // TODO: 将来的に completed ステータスを追加予定
+      return false
     }
-    // すべて: confirmed と completed の両方
-    return true
+    // すべて: confirmed のみ（現在は completed がないため）
+    return assignment.status === 'confirmed'
   })
 
-  // 日付でソート（昇順）
+  // 日付でソート（降順：新しい順）
   const sortedAssignments = [...filteredAssignments].sort((a, b) => {
     const dateA = new Date(a.reservation?.reservation_date?.replace(/\//g, '-') || 0)
     const dateB = new Date(b.reservation?.reservation_date?.replace(/\//g, '-') || 0)
-    return dateA.getTime() - dateB.getTime()
+    return dateB.getTime() - dateA.getTime()  // 降順（新しい順）
   })
+
+  // ページネーション
+  const itemsPerPage = 10
+  const totalPages = Math.ceil(sortedAssignments.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedAssignments = sortedAssignments.slice(startIndex, endIndex)
+
+  // フィルター変更時にページをリセット
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterStatus])
 
   // 報酬計算
   const calculateEarnings = (assignment: Assignment) => {
@@ -192,7 +212,7 @@ export default function StaffShiftsPage() {
                   onClick={() => setFilterStatus('completed')}
                 >
                   <i className="bi bi-check-circle me-2"></i>
-                  完了 ({assignments.filter(a => a.status === 'completed').length})
+                  完了 (0)
                 </button>
                 <button 
                   type="button" 
@@ -218,15 +238,21 @@ export default function StaffShiftsPage() {
       
       {/* シフト一覧 */}
       <div className="card">
-        <div className="card-header">
-          <h5 className="mb-0">
-            <i className="bi bi-calendar-check me-2"></i>
-            確定業務一覧 ({sortedAssignments.length}件)
-          </h5>
-        </div>
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">
+                <i className="bi bi-calendar-check me-2"></i>
+                確定業務一覧 ({sortedAssignments.length}件)
+              </h5>
+              {totalPages > 1 && (
+                <div className="text-muted small">
+                  ページ {currentPage} / {totalPages}
+                </div>
+              )}
+            </div>
         <div className="card-body p-0">
-          {sortedAssignments.length > 0 ? (
-            <div className="table-responsive">
+          {paginatedAssignments.length > 0 ? (
+            <div className="table-responsive-cards">
+              {/* PC表示: テーブル */}
               <table className="table table-hover mb-0">
                 <thead className="table-light">
                   <tr>
@@ -239,7 +265,7 @@ export default function StaffShiftsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAssignments.map((assignment) => {
+                  {paginatedAssignments.map((assignment) => {
                     if (!assignment.reservation) return null
                     
                     const { reservation } = assignment
@@ -258,7 +284,7 @@ export default function StaffShiftsPage() {
                           <small className="text-muted">({getDayOfWeek(reservation.reservation_date)})</small>
                         </td>
                         <td>
-                          <div className="fw-bold">{reservation.company_name || '不明な企業'}</div>
+                          <div className="fw-bold">{assignment.reservation?.company_name || '不明な企業'}</div>
                           <small className="text-muted">{reservation.office_name}</small>
                           {reservation.office_address && (
                             <div className="text-muted small">
@@ -297,12 +323,13 @@ export default function StaffShiftsPage() {
                                 <i className="bi bi-clock"></i>
                               </Link>
                             )}
-                            <button 
+                            <Link 
+                              href={`/staff/jobs/offers/${assignment.id}`}
                               className="btn btn-sm btn-outline-primary"
-                              title="詳細"
+                              title="案件詳細を見る"
                             >
                               <i className="bi bi-eye"></i>
-                            </button>
+                            </Link>
                           </div>
                         </td>
                       </tr>
@@ -310,6 +337,120 @@ export default function StaffShiftsPage() {
                   })}
                 </tbody>
               </table>
+              
+              {/* モバイル表示: カード */}
+              <div className="mobile-card-list">
+                {paginatedAssignments.map((assignment) => {
+                  if (!assignment.reservation) return null
+                  
+                  const { reservation } = assignment
+                  const reservationDate = new Date(reservation.reservation_date.replace(/\//g, '-'))
+                  const isToday = reservationDate.toDateString() === today.toDateString()
+                  const isPast = reservationDate < today
+                  
+                  // 枠の時間を取得
+                  let slotTime = `${reservation.start_time} 〜 ${reservation.end_time}`
+                  let slotDuration = reservation.service_duration || 0
+                  
+                  if (assignment.slot_number && reservation.time_slots && Array.isArray(reservation.time_slots)) {
+                    const slot = reservation.time_slots.find((s: any) => s.slot === assignment.slot_number)
+                    if (slot) {
+                      slotTime = `${slot.start_time} 〜 ${slot.end_time}`
+                      slotDuration = slot.duration || 0
+                    }
+                  }
+                  
+                  return (
+                    <div key={assignment.id} className={`mobile-card ${isToday ? 'today' : ''}`}>
+                      <div className="mobile-card-row">
+                        <div className="flex-grow-1">
+                          <div className="mobile-card-label">日時</div>
+                          <div className="mobile-card-value primary">
+                            {reservation.reservation_date}
+                            {isToday && <span className="badge bg-warning text-dark ms-2">今日</span>}
+                          </div>
+                          <small className="text-muted">({getDayOfWeek(reservation.reservation_date)})</small>
+                        </div>
+                      </div>
+                      
+                      <div className="mobile-card-row mt-2">
+                        <div className="flex-grow-1">
+                          <div className="mobile-card-label">企業・事務所</div>
+                          <div className="mobile-card-value fw-bold">{assignment.reservation?.company_name || '不明な企業'}</div>
+                          <small className="text-muted">{reservation.office_name}</small>
+                        </div>
+                      </div>
+                      
+                      <div className="mobile-card-row mt-2">
+                        <div className="flex-grow-1">
+                          <div className="mobile-card-label">時間</div>
+                          <div className="mobile-card-value">{slotTime}</div>
+                          {slotDuration > 0 && (
+                            <small className="text-muted">({slotDuration}分)</small>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="mobile-card-actions">
+                        {isToday && !isPast && (
+                          <Link 
+                            href="/staff/attendance" 
+                            className="btn btn-success btn-sm"
+                          >
+                            <i className="bi bi-clock me-2"></i>
+                            勤怠打刻
+                          </Link>
+                        )}
+                        <Link 
+                          href={`/staff/jobs/offers/${assignment.id}`}
+                          className="btn btn-outline-primary btn-sm"
+                        >
+                          <i className="bi bi-eye me-2"></i>
+                          詳細を見る
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              
+              {/* ページネーション */}
+              {totalPages > 1 && (
+                <div className="card-footer">
+                  <nav aria-label="ページネーション">
+                    <ul className="pagination pagination-sm justify-content-center mb-0">
+                      <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link" 
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          前へ
+                        </button>
+                      </li>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <li key={page} className={`page-item ${currentPage === page ? 'active' : ''}`}>
+                          <button 
+                            className="page-link"
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </button>
+                        </li>
+                      ))}
+                      <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          次へ
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-5">
@@ -328,39 +469,6 @@ export default function StaffShiftsPage() {
         </div>
       </div>
 
-      {/* サマリーカード */}
-      {sortedAssignments.length > 0 && (
-        <div className="row g-3 mt-3">
-          <div className="col-12 col-md-4">
-            <div className="card bg-light">
-              <div className="card-body text-center">
-                <h3 className="mb-0">{sortedAssignments.length}件</h3>
-                <small className="text-muted">確定業務数</small>
-              </div>
-            </div>
-          </div>
-          <div className="col-12 col-md-4">
-            <div className="card bg-light">
-              <div className="card-body text-center">
-                <h3 className="mb-0 text-success">
-                  {formatCurrency(sortedAssignments.reduce((sum, a) => sum + calculateEarnings(a), 0))}
-                </h3>
-                <small className="text-muted">予定報酬合計</small>
-              </div>
-            </div>
-          </div>
-          <div className="col-12 col-md-4">
-            <div className="card bg-light">
-              <div className="card-body text-center">
-                <h3 className="mb-0 text-primary">
-                  {assignments.filter(a => a.status === 'confirmed').length}件
-                </h3>
-                <small className="text-muted">今後の予定</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }

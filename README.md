@@ -92,7 +92,10 @@ npm run dev
 - **Password**: `password123`
 
 ### 企業
-- **Email**: `company@example.com`
+- **Email**: `company1@example.com` (株式会社A)
+- **Password**: `password123`
+
+- **Email**: `company2@example.com` (株式会社B)
 - **Password**: `password123`
 
 ### スタッフ

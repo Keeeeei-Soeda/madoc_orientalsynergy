@@ -30,7 +30,10 @@ export default function StaffOfferDetailPage() {
         setError(null)
         
         // スタッフ情報を取得（user_idで検索）
-        const staffData = await fetch(`http://localhost:8000/api/v1/staff`, {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1` 
+          : 'http://localhost:8000/api/v1'
+        const staffData = await fetch(`${API_BASE_URL}/staff`, {
           headers: {
             'Authorization': `Bearer ${document.cookie.split('access_token=')[1]?.split(';')[0]}`
           }
@@ -96,18 +99,22 @@ export default function StaffOfferDetailPage() {
     
     try {
       setResponding(true)
-      await assignmentsApi.updateAssignment(assignment.id, {
-        status: accept ? 'confirmed' : 'rejected'
-      })
+      
+      if (accept) {
+        // 受託APIを呼び出し
+        await assignmentsApi.acceptAssignment(assignment.id)
+      } else {
+        // 辞退APIを呼び出し（辞退理由なし）
+        await assignmentsApi.rejectAssignment(assignment.id)
+      }
       
       alert(accept ? 'オファーを受諾しました！' : 'オファーを辞退しました。')
       
-      // オファー一覧に戻る
-      router.push('/staff/jobs/offers')
+      // ページを再読み込みしてバッジを更新
+      window.location.reload()
     } catch (err: any) {
       alert('回答の送信に失敗しました: ' + (err.message || ''))
       console.error('回答送信エラー:', err)
-    } finally {
       setResponding(false)
     }
   }
@@ -177,6 +184,78 @@ export default function StaffOfferDetailPage() {
   }
   
   const earnings = calculateEarnings()
+  
+  // 備考を解析して、個人名を隠し、枠ごとに整理する関数
+  const parseNotesWithSlotInfo = (notes: string, timeSlots: TimeSlotWithEmployee[]): string => {
+    if (!notes) return ''
+    
+    // 備考を行ごとに分割
+    const lines = notes.split('\n')
+    const result: string[] = []
+    const employeeNotes: Array<{ name: string; department: string; request: string; slot?: number }> = []
+    
+    // 各行を処理
+    for (const line of lines) {
+      // [社員登録] で始まる行を解析
+      if (line.includes('[社員登録]')) {
+        // パターン: [社員登録] 名前 (部署 - 役職) - 要望
+        // または: [社員登録] 名前 (部署) - 要望
+        const match = line.match(/\[社員登録\]\s+([^(]+?)\s+\(([^)]+?)\)\s*-\s*(.+)/)
+        
+        if (match) {
+          const employeeName = match[1].trim()
+          const department = match[2].trim()
+          const request = match[3].trim()
+          
+          // time_slotsから該当する枠を探す
+          const slot = timeSlots.find(s => s.employee_name === employeeName)
+          
+          if (slot) {
+            employeeNotes.push({
+              name: employeeName,
+              department: department,
+              request: request,
+              slot: slot.slot
+            })
+          } else {
+            // 枠が見つからない場合も記録（フォールバック用）
+            employeeNotes.push({
+              name: employeeName,
+              department: department,
+              request: request
+            })
+          }
+        }
+      } else {
+        // 社員登録情報以外の備考はそのまま追加
+        if (line.trim()) {
+          result.push(line.trim())
+        }
+      }
+    }
+    
+    // 社員登録情報を枠ごとに整理して追加
+    if (employeeNotes.length > 0) {
+      // 枠番号でソート
+      employeeNotes.sort((a, b) => {
+        if (a.slot && b.slot) return a.slot - b.slot
+        if (a.slot) return -1
+        if (b.slot) return 1
+        return 0
+      })
+      
+      employeeNotes.forEach(note => {
+        if (note.slot) {
+          result.push(`- 枠${note.slot}の社員からの要望: ${note.request}`)
+        } else {
+          // 枠が見つからない場合は部署名のみ表示（フォールバック）
+          result.push(`- ${note.department}の社員からの要望: ${note.request}`)
+        }
+      })
+    }
+    
+    return result.join('\n')
+  }
   
   // ステータスバッジ
   const getStatusBadge = () => {
@@ -376,7 +455,9 @@ export default function StaffOfferDetailPage() {
                 {reservation.notes && (
                   <div>
                     <label className="form-label fw-bold">備考</label>
-                    <p className="mb-0">{reservation.notes}</p>
+                    <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>
+                      {parseNotesWithSlotInfo(reservation.notes, timeSlots)}
+                    </p>
                   </div>
                 )}
               </div>

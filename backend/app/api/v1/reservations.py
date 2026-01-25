@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
+import json
 from ...database import get_db
 from ...models.reservation import Reservation as ReservationModel, ReservationStatus
 from ...models.employee import Employee as EmployeeModel
@@ -285,7 +286,7 @@ def add_employee_to_reservation(
     
     Args:
         reservation_id: 予約ID
-        employee_data: 社員登録情報
+        employee_data: 社員登録情報（枠番号含む）
         db: データベースセッション
         current_user: 現在のユーザー
         
@@ -293,48 +294,132 @@ def add_employee_to_reservation(
         Reservation: 更新された予約
         
     Raises:
-        HTTPException: 予約が見つからない場合、または既に登録済みの場合
+        HTTPException: 予約が見つからない、満席、枠が無効、または既に登録済みの場合
     """
-    db_reservation = db.query(ReservationModel).filter(
-        ReservationModel.id == reservation_id
-    ).first()
-    
-    if db_reservation is None:
+    try:
+        # 予約を取得
+        db_reservation = db.query(ReservationModel).filter(
+            ReservationModel.id == reservation_id
+        ).first()
+        
+        if db_reservation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"予約ID {reservation_id} が見つかりません"
+            )
+        
+        # 既に登録済みかチェック
+        existing_employees = db_reservation.employee_names or ""
+        if employee_data.employee_name in existing_employees:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"社員 '{employee_data.employee_name}' は既にこの予約に登録されています"
+            )
+        
+        # 枠番号が指定されていない場合はエラー
+        if not employee_data.slot_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="枠番号を指定してください"
+            )
+        
+        # 現在の登録人数をカウント
+        current_count = len(existing_employees.split(',')) if existing_employees else 0
+        
+        # 満席チェック
+        if current_count >= db_reservation.max_participants:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="この予約は既に満席です"
+            )
+        
+        # time_slotsへの指定枠割り当て
+        if db_reservation.time_slots:
+            # time_slotsをパース（JSON/文字列対応）
+            if isinstance(db_reservation.time_slots, str):
+                try:
+                    slots = json.loads(db_reservation.time_slots)
+                except json.JSONDecodeError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="時間枠データの形式が不正です"
+                    )
+            elif isinstance(db_reservation.time_slots, list):
+                slots = list(db_reservation.time_slots)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="時間枠データの型が不正です"
+                )
+            
+            slot_index = employee_data.slot_number - 1
+            
+            # 枠が存在するかチェック
+            if slot_index < 0 or slot_index >= len(slots):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"無効な枠番号です。有効範囲: 1-{len(slots)}"
+                )
+            
+            # 既に埋まっているかチェック
+            if slots[slot_index].get('is_filled', False):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"枠{employee_data.slot_number}は既に予約されています"
+                )
+            
+            # 指定された枠に割り当て
+            slots[slot_index]['employee_name'] = employee_data.employee_name
+            slots[slot_index]['employee_department'] = employee_data.department
+            if employee_data.position:
+                slots[slot_index]['employee_position'] = employee_data.position
+            slots[slot_index]['is_filled'] = True
+            
+            # 更新
+            db_reservation.time_slots = slots
+            flag_modified(db_reservation, 'time_slots')
+            
+            print(f"✅ 社員を枠{employee_data.slot_number}に割り当て: {employee_data.employee_name}")
+        
+        # 社員名を追加（カンマ区切り）
+        if existing_employees:
+            db_reservation.employee_names = f"{existing_employees}, {employee_data.employee_name}"
+        else:
+            db_reservation.employee_names = employee_data.employee_name
+        
+        # slots_filledを更新
+        db_reservation.slots_filled = current_count + 1
+        
+        # 備考に社員情報を追記（オプション）
+        employee_info = f"\n[社員登録] {employee_data.employee_name} ({employee_data.department}"
+        if employee_data.position:
+            employee_info += f" - {employee_data.position}"
+        employee_info += ")"
+        if employee_data.notes:
+            employee_info += f" - {employee_data.notes}"
+        
+        if db_reservation.notes:
+            db_reservation.notes = f"{db_reservation.notes}{employee_info}"
+        else:
+            db_reservation.notes = employee_info.strip()
+        
+        print(f"🔄 社員登録完了: {employee_data.employee_name}, slots_filled={db_reservation.slots_filled}")
+        
+        db.commit()
+        db.refresh(db_reservation)
+        
+        return db_reservation
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ 社員登録エラー: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Reservation with id {reservation_id} not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"社員の登録に失敗しました: {str(e)}"
         )
-    
-    # 既に登録済みかチェック
-    existing_employees = db_reservation.employee_names or ""
-    if employee_data.employee_name in existing_employees:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"社員 '{employee_data.employee_name}' は既にこの予約に登録されています"
-        )
-    
-    # 社員名を追加（カンマ区切り）
-    if existing_employees:
-        db_reservation.employee_names = f"{existing_employees}, {employee_data.employee_name}"
-    else:
-        db_reservation.employee_names = employee_data.employee_name
-    
-    # 備考に社員情報を追記（オプション）
-    employee_info = f"\n[社員登録] {employee_data.employee_name} ({employee_data.department}"
-    if employee_data.position:
-        employee_info += f" - {employee_data.position}"
-    employee_info += ")"
-    if employee_data.notes:
-        employee_info += f" - {employee_data.notes}"
-    
-    if db_reservation.notes:
-        db_reservation.notes = f"{db_reservation.notes}{employee_info}"
-    else:
-        db_reservation.notes = employee_info.strip()
-    
-    db.commit()
-    db.refresh(db_reservation)
-    return db_reservation
 
 
 @router.post("/reservations/{reservation_id}/assign-employee", response_model=Reservation)
@@ -412,31 +497,67 @@ def assign_employee_to_slot(
         )
     
     # time_slotsを更新（枠番号は1始まりなのでインデックスは-1）
-    slots = list(db_reservation.time_slots)  # JSONをリストに変換
-    slot_index = assignment.slot_number - 1
-    
-    # 既に割り当てられている場合は上書き
-    slots[slot_index]['employee_id'] = assignment.employee_id
-    slots[slot_index]['employee_name'] = employee.name
-    slots[slot_index]['employee_department'] = employee.department
-    slots[slot_index]['is_filled'] = True
-    
-    # SQLAlchemyにJSONフィールドの変更を通知
-    db_reservation.time_slots = slots
-    flag_modified(db_reservation, 'time_slots')
-    
-    # slots_filledを更新（is_filled=Trueの枠数をカウント）
-    filled_count = sum(1 for slot in slots if slot.get('is_filled', False))
-    db_reservation.slots_filled = filled_count
-    
-    print(f"🔄 従業員割り当て: 予約ID={db_reservation.id}, 枠{assignment.slot_number}, 割り当て済み={filled_count}/{len(slots)}")
-    
-    db.commit()
-    db.refresh(db_reservation)
-    
-    print(f"✅ コミット後: slots_filled={db_reservation.slots_filled}")
-    
-    return db_reservation
+    try:
+        # time_slotsが文字列の場合はJSONパース、リストの場合はそのまま使用
+        if db_reservation.time_slots is None:
+            slots = []
+        elif isinstance(db_reservation.time_slots, str):
+            # 文字列の場合はJSONパース
+            try:
+                slots = json.loads(db_reservation.time_slots)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="時間枠データの形式が不正です"
+                )
+        elif isinstance(db_reservation.time_slots, list):
+            # 既にリストの場合はそのまま使用（コピーを作成）
+            slots = list(db_reservation.time_slots)
+        else:
+            # その他の型の場合はエラー
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"時間枠データの型が不正です: {type(db_reservation.time_slots)}"
+            )
+        
+        slot_index = assignment.slot_number - 1
+        
+        # スロットが存在するかチェック
+        if slot_index >= len(slots) or slot_index < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"無効な枠番号です。有効範囲: 1-{len(slots)}"
+            )
+        
+        # 既に割り当てられている場合は上書き
+        slots[slot_index]['employee_id'] = assignment.employee_id
+        slots[slot_index]['employee_name'] = employee.name
+        slots[slot_index]['employee_department'] = employee.department
+        slots[slot_index]['is_filled'] = True
+        
+        # SQLAlchemyにJSONフィールドの変更を通知
+        db_reservation.time_slots = slots
+        flag_modified(db_reservation, 'time_slots')
+        
+        # slots_filledを更新（is_filled=Trueの枠数をカウント）
+        filled_count = sum(1 for slot in slots if slot.get('is_filled', False))
+        db_reservation.slots_filled = filled_count
+        
+        print(f"🔄 従業員割り当て: 予約ID={db_reservation.id}, 枠{assignment.slot_number}, 割り当て済み={filled_count}/{len(slots)}")
+        
+        db.commit()
+        db.refresh(db_reservation)
+        
+        print(f"✅ コミット後: slots_filled={db_reservation.slots_filled}")
+        
+        return db_reservation
+    except Exception as e:
+        db.rollback()
+        print(f"❌ エラー: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"社員の割り当てに失敗しました: {str(e)}"
+        )
 
 
 @router.delete("/reservations/{reservation_id}/slots/{slot_number}/employee", response_model=Reservation)
@@ -481,22 +602,43 @@ def unassign_employee_from_slot(
                 detail="この予約を操作する権限がありません"
             )
     
+    # time_slotsを取得（文字列の場合はJSONパース、リストの場合はそのまま使用）
+    if db_reservation.time_slots is None:
+        slots = []
+    elif isinstance(db_reservation.time_slots, str):
+        # 文字列の場合はJSONパース
+        try:
+            slots = json.loads(db_reservation.time_slots)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="時間枠データの形式が不正です"
+            )
+    elif isinstance(db_reservation.time_slots, list):
+        # 既にリストの場合はそのまま使用（コピーを作成）
+        slots = list(db_reservation.time_slots)
+    else:
+        # その他の型の場合はエラー
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"時間枠データの型が不正です: {type(db_reservation.time_slots)}"
+        )
+    
     # time_slotsが存在するかチェック
-    if not db_reservation.time_slots or len(db_reservation.time_slots) == 0:
+    if not slots or len(slots) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="この予約には時間枠が設定されていません"
         )
     
     # 枠番号の妥当性をチェック
-    if slot_number < 1 or slot_number > len(db_reservation.time_slots):
+    if slot_number < 1 or slot_number > len(slots):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"無効な枠番号です。有効範囲: 1-{len(db_reservation.time_slots)}"
+            detail=f"無効な枠番号です。有効範囲: 1-{len(slots)}"
         )
     
     # time_slotsを更新
-    slots = list(db_reservation.time_slots)
     slot_index = slot_number - 1
     
     # 社員情報を削除

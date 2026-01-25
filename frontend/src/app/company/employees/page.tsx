@@ -96,7 +96,7 @@ export default function CompanyEmployeesPage() {
       // モーダルを閉じる
       const modalElement = document.getElementById('employeeModal')
       if (modalElement) {
-        const modal = window.bootstrap?.Modal?.getInstance(modalElement)
+        const modal = (window as any).bootstrap?.Modal?.getInstance(modalElement)
         modal?.hide()
       }
       
@@ -294,8 +294,8 @@ export default function CompanyEmployeesPage() {
                     <tr>
                       <th>LINE ID</th>
                       <td>
-                        {selectedEmployee.lineId ? (
-                          <code className="text-success">{selectedEmployee.lineId}</code>
+                        {selectedEmployee.line_id ? (
+                          <code className="text-success">{selectedEmployee.line_id}</code>
                         ) : (
                           <span className="text-muted">-</span>
                         )}
@@ -304,8 +304,8 @@ export default function CompanyEmployeesPage() {
                     <tr>
                       <th>LINE連携状況</th>
                       <td>
-                        <span className={`badge bg-${selectedEmployee.status === '連携済' ? 'success' : 'warning'}`}>
-                          {selectedEmployee.status}
+                        <span className={`badge bg-${selectedEmployee.line_linked ? 'success' : 'warning'}`}>
+                          {selectedEmployee.line_linked ? '連携済' : '未連携'}
                         </span>
                       </td>
                     </tr>
@@ -382,7 +382,7 @@ export default function CompanyEmployeesPage() {
                         className="form-control"
                         id="edit_lineId"
                         name="lineId"
-                        value={editFormData.lineId}
+                        value={editFormData.line_id}
                         onChange={handleFormChange}
                         placeholder="例: tanaka_line"
                       />

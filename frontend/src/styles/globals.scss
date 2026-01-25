@@ -12,6 +12,9 @@
 // Bootstrap カスタマイズ
 @import './custom-bootstrap';
 
+// レスポンシブスタイル - スタッフ側
+@import './responsive-staff';
+
 // ============================================================================
 // グローバルスタイル
 // ============================================================================
@@ -55,9 +58,7 @@ a {
     height: 100vh;
     overflow-y: auto;
     
-    @media (max-width: 768px) {
-      width: 60px;
-    }
+    // タブレット以下のメディアクエリは_responsive-staff.scssで管理
   }
   
   .main-wrapper {
@@ -66,9 +67,7 @@ a {
     display: flex;
     flex-direction: column;
     
-    @media (max-width: 768px) {
-      margin-left: 60px;
-    }
+    // タブレット以下では左マージンを0に（_responsive-staff.scssで上書き）
   }
   
   .header {

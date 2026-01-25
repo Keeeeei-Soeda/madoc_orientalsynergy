@@ -40,6 +40,8 @@ COPY . .
 
 # 環境変数設定（ビルド時）
 ENV NEXT_TELEMETRY_DISABLED 1
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # ビルド実行
 RUN npm run build
@@ -57,12 +59,12 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# 必要なファイルをコピー
-COPY --from=builder /app/public ./public
-
 # ビルド成果物をコピー
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# public ディレクトリを作成（存在しない場合）
+RUN mkdir -p ./public
 
 # 非rootユーザーに切り替え
 USER nextjs

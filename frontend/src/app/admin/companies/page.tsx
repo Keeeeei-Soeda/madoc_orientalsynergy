@@ -157,8 +157,8 @@ export default function CompaniesPage() {
                       {company.contract_end_date && ` 〜 ${company.contract_end_date}`}
                     </td>
                     <td>
-                      <span className={`badge bg-${company.usage_status === 'active' ? 'success' : 'secondary'}`}>
-                        {company.usage_status === 'active' ? '有効' : company.usage_status}
+                      <span className="badge bg-success">
+                        有効
                       </span>
                     </td>
                     <td>

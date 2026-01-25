@@ -6,7 +6,7 @@ interface StatCardProps {
   icon: string
   iconColor?: string
   change?: string
-  changeType?: 'positive' | 'negative'
+  changeType?: 'positive' | 'negative' | 'warning'
 }
 
 export default function StatCard({ 

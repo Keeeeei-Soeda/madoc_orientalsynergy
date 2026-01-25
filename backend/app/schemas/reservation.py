@@ -1,9 +1,10 @@
 """
 予約スキーマ
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import json
 from ..models.reservation import ReservationStatus
 
 
@@ -80,6 +81,17 @@ class Reservation(ReservationBase):
     created_at: datetime
     updated_at: datetime
     
+    @field_validator('time_slots', mode='before')
+    @classmethod
+    def parse_time_slots(cls, v):
+        """time_slotsが文字列の場合、JSONパースする"""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return None
+        return v
+    
     class Config:
         from_attributes = True
 
@@ -92,6 +104,7 @@ class EmployeeRegistration(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     notes: Optional[str] = None
+    slot_number: Optional[int] = None  # 社員が選択した枠番号（1始まり）
 
 
 class SlotEmployeeAssignment(BaseModel):

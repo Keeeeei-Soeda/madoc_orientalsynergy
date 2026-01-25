@@ -269,58 +269,114 @@ def get_staff_earnings(
     total_earnings = 0
     total_duration = 0
     details = []
+    assignment_count = 0  # 確定済みアサイン数をカウント（durationに関係なく）
     
     for assignment in assignments:
         reservation = reservation_map.get(assignment.reservation_id)
-        if not reservation or not reservation.hourly_rate:
+        if not reservation:
             continue
         
         # 月フィルター
+        passed_month_filter = True
         if month is not None or year is not None:
             try:
-                res_date = datetime.strptime(reservation.reservation_date, "%Y/%m/%d")
-                if year is not None and res_date.year != year:
-                    continue
-                if month is not None and res_date.month != month:
-                    continue
-            except:
-                continue
+                # 日付フォーマットを複数パターンで試行
+                date_str = reservation.reservation_date
+                if not date_str:
+                    passed_month_filter = False
+                else:
+                    res_date = None
+                    
+                    # パターン1: YYYY/MM/DD
+                    try:
+                        res_date = datetime.strptime(str(date_str), "%Y/%m/%d")
+                    except (ValueError, TypeError):
+                        # パターン2: YYYY-MM-DD
+                        try:
+                            res_date = datetime.strptime(str(date_str), "%Y-%m-%d")
+                        except (ValueError, TypeError):
+                            # パターン3: その他の形式を試行
+                            try:
+                                res_date = datetime.strptime(str(date_str), "%Y/%m/%d %H:%M:%S")
+                            except (ValueError, TypeError):
+                                pass
+                    
+                    if res_date:
+                        if year is not None and res_date.year != year:
+                            passed_month_filter = False
+                        if month is not None and res_date.month != month:
+                            passed_month_filter = False
+                    else:
+                        # 日付パースに失敗した場合はフィルターを通過させない
+                        passed_month_filter = False
+            except Exception as e:
+                # エラーが発生した場合はフィルターを通過させない
+                passed_month_filter = False
+        
+        # 月フィルターを通過した確定済みアサインをカウント
+        if passed_month_filter:
+            assignment_count += 1
+        
+        # 月フィルターを通過していない場合はスキップ
+        if not passed_month_filter:
+            continue
         
         # 給与計算
         duration = 0
         slot_number = getattr(assignment, 'slot_number', None) if hasattr(assignment, 'slot_number') else None
         
-        if slot_number and reservation.time_slots:
-            # 特定の枠が指定されている場合
-            for slot in reservation.time_slots:
-                if slot.get('slot') == slot_number:
-                    duration = slot.get('duration', 0)
-                    break
-        elif reservation.service_duration:
-            # 枠指定がない場合、service_durationを使用
-            duration = reservation.service_duration
+        try:
+            if slot_number and reservation.time_slots:
+                # 特定の枠が指定されている場合
+                time_slots = reservation.time_slots
+                
+                # JSON文字列の場合はパース
+                if isinstance(time_slots, str):
+                    import json
+                    try:
+                        time_slots = json.loads(time_slots)
+                    except (json.JSONDecodeError, TypeError):
+                        time_slots = None
+                
+                if isinstance(time_slots, list):
+                    for slot in time_slots:
+                        # slot が dict の場合とそうでない場合に対応
+                        slot_num = slot.get('slot') if isinstance(slot, dict) else getattr(slot, 'slot', None)
+                        if slot_num == slot_number:
+                            duration = slot.get('duration', 0) if isinstance(slot, dict) else getattr(slot, 'duration', 0)
+                            break
+            elif reservation.service_duration:
+                # 枠指定がない場合、service_durationを使用
+                duration = reservation.service_duration
+        except Exception as e:
+            # エラーが発生した場合は duration を 0 のままにする
+            duration = 0
         
-        if duration > 0:
-            earnings = int((duration * reservation.hourly_rate) / 60)
+        # 給与計算（hourly_rateがある場合のみ）
+        hourly_rate = reservation.hourly_rate if reservation.hourly_rate else 0
+        earnings = 0
+        if duration > 0 and hourly_rate > 0:
+            earnings = int((duration * hourly_rate) / 60)
             total_earnings += earnings
             total_duration += duration
-            
-            details.append(EarningsDetail(
-                reservation_id=reservation.id,
-                reservation_date=reservation.reservation_date,
-                office_name=reservation.office_name,
-                slot_number=slot_number,
-                duration=duration,
-                hourly_rate=reservation.hourly_rate,
-                earnings=earnings
-            ))
+        
+        # 全ての確定済みアサインをdetailsに追加（hourly_rateやdurationがなくても）
+        details.append(EarningsDetail(
+            reservation_id=reservation.id,
+            reservation_date=reservation.reservation_date,
+            office_name=reservation.office_name,
+            slot_number=slot_number,
+            duration=duration,
+            hourly_rate=hourly_rate,
+            earnings=earnings
+        ))
     
     return StaffEarningsResponse(
         staff_id=staff.id,
         staff_name=staff.name,
         total_earnings=total_earnings,
         total_duration=total_duration,
-        assignment_count=len(details),
+        assignment_count=assignment_count,  # durationに関係なく、月フィルターを通過した確定済みアサイン数
         details=details
     )
 
