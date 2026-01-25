@@ -11,6 +11,7 @@ export interface TimeSlotWithEmployee {
   employee_id?: number;
   employee_name?: string;
   employee_department?: string;
+  staff_name?: string; // スタッフ名も追加
 }
 
 interface TimeSlotDisplayProps {
