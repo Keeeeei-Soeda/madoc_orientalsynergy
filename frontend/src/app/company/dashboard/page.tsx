@@ -100,8 +100,8 @@ export default function CompanyDashboardPage() {
 
   // ステータスラベルとバッジクラスを取得
   const getStatusInfo = (status: string) => {
-    const label = getCompanyStatusLabel(status)
-    const badgeClass = getStatusBadgeClass(status)
+    const label = getCompanyStatusLabel(status as ReservationStatus)
+    const badgeClass = getStatusBadgeClass(status as ReservationStatus)
     return { label, badgeClass }
   }
 
