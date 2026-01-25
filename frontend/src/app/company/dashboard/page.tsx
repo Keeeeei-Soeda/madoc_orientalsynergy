@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import PageHeader from '@/components/common/PageHeader'
 import StatCard from '@/components/common/StatCard'
 import Link from 'next/link'
-import { reservationsApi, assignmentsApi, Reservation, getCompanyStatusLabel, getStatusBadgeClass } from '@/lib/api'
+import { reservationsApi, assignmentsApi, Reservation, ReservationStatus, getCompanyStatusLabel, getStatusBadgeClass } from '@/lib/api'
 import { useAuth } from '@/lib/auth/AuthContext'
 
 // モックデータ（統計情報は後でAPI実装）
