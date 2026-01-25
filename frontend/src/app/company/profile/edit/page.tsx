@@ -43,18 +43,18 @@ export default function CompanyProfileEditPage() {
         const companyData = await companiesApi.getById(user.id)
         
         setFormData({
-          name: companyData.name || '',
+          name: companyData.company_name || '',
           office_name: companyData.office_name || '',
           industry: companyData.industry || '',
-          representative: companyData.representative || '',
+          representative: companyData.representative_name || '',
           address: companyData.address || '',
           phone: companyData.phone || '',
-          fax: companyData.fax || '',
+          fax: '', // Company型に存在しないため空にする
           email: companyData.email || '',
           contact_person: companyData.contact_person || '',
-          contact_department: companyData.contact_department || '',
+          contact_department: '', // Company型に存在しないため空にする
           contact_phone: companyData.contact_phone || '',
-          contact_fax: companyData.contact_fax || '',
+          contact_fax: '', // Company型に存在しないため空にする
           contact_email: companyData.contact_email || '',
           notes: companyData.notes || '',
         })
