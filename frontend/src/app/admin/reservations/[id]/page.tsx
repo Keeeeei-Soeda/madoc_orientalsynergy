@@ -193,7 +193,7 @@ export default function AdminReservationDetailPage() {
         reservation_id: reservation.id,
         staff_id: selectedStaffId,
         assigned_by: user.id,
-        slot_number: null,  // 枠番号なし
+        slot_number: undefined,  // 枠番号なし
         notes: `${timeRangeText} の業務オファー`
       })
 
