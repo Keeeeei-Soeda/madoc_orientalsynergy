@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import PageHeader from '@/components/common/PageHeader'
-import { staffApi, Staff } from '@/lib/api'
+import { staffApi, Staff, uploadApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth/AuthContext'
 
 const evaluationsData = [
@@ -17,6 +17,8 @@ export default function StaffMypage() {
   const [staffId, setStaffId] = useState<number | null>(null)
   const [staffData, setStaffData] = useState<Staff | null>(null)
   const [loadingStaff, setLoadingStaff] = useState(true)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // スタッフIDとスタッフ情報を取得
   useEffect(() => {
@@ -42,6 +44,73 @@ export default function StaffMypage() {
     fetchStaffData()
   }, [user])
 
+  // 顔写真アップロードハンドラー
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !staffId) return
+
+    // ファイルサイズチェック（10MB）
+    if (file.size > 10 * 1024 * 1024) {
+      alert('ファイルサイズが大きすぎます。10MB以下のファイルを選択してください。')
+      return
+    }
+
+    // ファイル形式チェック
+    if (!file.type.startsWith('image/')) {
+      alert('画像ファイルを選択してください。')
+      return
+    }
+
+    try {
+      setUploadingPhoto(true)
+      // 画像をアップロード
+      const uploadResult = await uploadApi.uploadProfilePhoto(file)
+
+      // スタッフ情報を更新
+      const updatedStaff = await staffApi.update(staffId, {
+        profile_photo: uploadResult.file_url
+      })
+
+      setStaffData(updatedStaff)
+      alert('顔写真を登録しました！')
+    } catch (err) {
+      console.error('写真アップロードエラー:', err)
+      alert('写真のアップロードに失敗しました。')
+    } finally {
+      setUploadingPhoto(false)
+      // ファイル選択をリセット
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // 顔写真削除ハンドラー
+  const handlePhotoDelete = async () => {
+    if (!staffId || !staffData?.profile_photo) return
+
+    if (!confirm('顔写真を削除しますか？')) return
+
+    try {
+      setUploadingPhoto(true)
+      // 画像を削除
+      await uploadApi.deleteProfilePhoto(staffData.profile_photo)
+
+      // スタッフ情報を更新
+      const updatedStaff = await staffApi.update(staffId, {
+        profile_photo: undefined
+      })
+
+      setStaffData(updatedStaff)
+      alert('顔写真を削除しました。')
+    } catch (err) {
+      console.error('写真削除エラー:', err)
+      alert('写真の削除に失敗しました。')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
 
   return (
     <>
@@ -54,6 +123,73 @@ export default function StaffMypage() {
       />
 
       <div className="row g-4">
+        {/* プロフィール写真 */}
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">
+              <h5 className="mb-0">プロフィール写真</h5>
+            </div>
+            <div className="card-body text-center">
+              {loadingStaff ? (
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">読み込み中...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    {staffData?.profile_photo ? (
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8000'}${staffData.profile_photo}`}
+                        alt="プロフィール写真"
+                        className="rounded-circle"
+                        style={{ width: '150px', height: '150px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        className="bg-secondary bg-opacity-10 text-secondary rounded-circle d-inline-flex align-items-center justify-content-center"
+                        style={{ width: '150px', height: '150px' }}
+                      >
+                        <i className="bi bi-person fs-1"></i>
+                      </div>
+                    )}
+                  </div>
+                  <div className="d-flex justify-content-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="d-none"
+                      disabled={uploadingPhoto}
+                    />
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                    >
+                      <i className="bi bi-camera me-2"></i>
+                      {uploadingPhoto ? 'アップロード中...' : staffData?.profile_photo ? '写真を変更' : '写真を登録'}
+                    </button>
+                    {staffData?.profile_photo && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={handlePhotoDelete}
+                        disabled={uploadingPhoto}
+                      >
+                        <i className="bi bi-trash me-2"></i>
+                        削除
+                      </button>
+                    )}
+                  </div>
+                  <small className="text-muted d-block mt-2">
+                    JPG、PNG、GIF形式（最大10MB）
+                  </small>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* 基本情報 */}
         <div className="col-12">
           <div className="card">

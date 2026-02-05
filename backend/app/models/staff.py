@@ -20,6 +20,7 @@ class Staff(Base):
     qualifications = Column(Text)
     available_days = Column(String(100))
     line_id = Column(String(100), unique=True)
+    profile_photo = Column(String(255))  # プロフィール写真URL
     is_available = Column(Boolean, default=True)
     rating = Column(Integer)
     notes = Column(Text)

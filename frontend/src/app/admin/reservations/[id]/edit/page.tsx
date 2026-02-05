@@ -403,6 +403,7 @@ export default function EditReservationPage() {
                   initialServiceDuration={formData.service_duration || 30}
                   initialBreakDuration={formData.break_duration || 10}
                   initialHourlyRate={formData.hourly_rate || 1500}
+                  hideEarnings={true}
                   onDataChange={handleTimeSlotDataChange}
                 />
               </div>

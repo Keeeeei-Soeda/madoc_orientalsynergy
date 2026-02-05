@@ -415,7 +415,7 @@ export default function StaffAttendancePage() {
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">完了報告</h5>
+                <h5 className="modal-title">報告</h5>
                 <button
                   type="button"
                   className="btn-close"
@@ -427,16 +427,50 @@ export default function StaffAttendancePage() {
                 ></button>
               </div>
               <div className="modal-body">
+                {selectedAttendanceId && (() => {
+                  const attendance = attendanceHistory.find(a => a.id === selectedAttendanceId)
+                  return (
+                    <>
+                      {attendance && attendance.clock_in_time && (
+                        <div className="mb-3">
+                          <label className="form-label">出勤時間</label>
+                          <div className="form-control-plaintext">
+                            {new Date(attendance.clock_in_time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      )}
+                      {attendance && attendance.clock_out_time && (
+                        <div className="mb-3">
+                          <label className="form-label">退勤時間</label>
+                          <div className="form-control-plaintext">
+                            {new Date(attendance.clock_out_time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      )}
+                      <div className="mb-3">
+                        <label className="form-label">アップ画像</label>
+                        <input
+                          type="file"
+                          className="form-control"
+                          accept="image/*"
+                          disabled={actionLoading}
+                        />
+                        <small className="text-muted">選択されていません</small>
+                      </div>
+                    </>
+                  )
+                })()}
                 <div className="mb-3">
-                  <label className="form-label">報告内容 *</label>
+                  <label className="form-label">特記事項 *</label>
                   <textarea
                     className="form-control"
                     rows={5}
                     value={completionReport}
                     onChange={(e) => setCompletionReport(e.target.value)}
-                    placeholder="施術内容、気づいた点などを入力してください"
+                    placeholder="対応した顧客企業社員の特筆事項を記入してください"
                     disabled={actionLoading}
                   ></textarea>
+                  <small className="text-muted">この内容は社員の「お悩みなど」と「カルテ」に反映されます</small>
                 </div>
               </div>
               <div className="modal-footer">
@@ -457,7 +491,7 @@ export default function StaffAttendancePage() {
                   onClick={handleSubmitCompletion}
                   disabled={actionLoading || !completionReport.trim()}
                 >
-                  {actionLoading ? '送信中...' : '送信'}
+                  {actionLoading ? '送信中...' : '報告完了'}
                 </button>
               </div>
             </div>

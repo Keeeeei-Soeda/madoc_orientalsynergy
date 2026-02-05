@@ -147,12 +147,21 @@ export default function StaffPage() {
               <div className="card-body">
                 <div className="d-flex align-items-start mb-3">
                   <div className="flex-shrink-0">
-                    <div 
-                      className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center"
-                      style={{ width: '60px', height: '60px' }}
-                    >
-                      <i className="bi bi-person fs-3"></i>
-                    </div>
+                    {staffMember.profile_photo ? (
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8000'}${staffMember.profile_photo}`}
+                        alt={staffMember.name}
+                        className="rounded-circle"
+                        style={{ width: '60px', height: '60px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div 
+                        className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ width: '60px', height: '60px' }}
+                      >
+                        <i className="bi bi-person fs-3"></i>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-grow-1 ms-3">
                     <h5 className="mb-1">{staffMember.name}</h5>

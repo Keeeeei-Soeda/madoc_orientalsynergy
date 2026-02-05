@@ -9,9 +9,11 @@ import {
   reservationsApi,
   staffApi,
   assignmentsApi,
+  employeesApi,
   Reservation,
   Staff,
   Assignment,
+  Employee,
   getAdminStatusLabel,
   getStatusBadgeClass
 } from '@/lib/api'
@@ -29,10 +31,21 @@ export default function AdminReservationDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showStaffModal, setShowStaffModal] = useState(false)
-  const [showSlotModal, setShowSlotModal] = useState(false)
-  const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null)
-  const [selectedSlotNumbers, setSelectedSlotNumbers] = useState<number[]>([])
+  // const [showSlotModal, setShowSlotModal] = useState(false)  // 旧：枠選択モーダル
+  // const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null)
+  // const [selectedSlotNumbers, setSelectedSlotNumbers] = useState<number[]>([])  // 旧：枠番号選択
   const [sendingOffer, setSendingOffer] = useState(false)
+  
+  // 新：時間帯でまとめてオファー送信用
+  const [showTimeRangeModal, setShowTimeRangeModal] = useState(false)
+  const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null)
+  const [selectedTimeRange, setSelectedTimeRange] = useState<{ start_time: string; end_time: string } | null>(null)
+  
+  // 社員情報モーダル用
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [editingEmployee, setEditingEmployee] = useState<Partial<Employee>>({})
+  const [savingEmployee, setSavingEmployee] = useState(false)
 
   // データ取得
   useEffect(() => {
@@ -66,87 +79,140 @@ export default function AdminReservationDetailPage() {
     }
   }, [reservationId, user?.id])
 
+  // ========== 旧：枠ごとのオファー送信（コメントアウト） ==========
+  // // ステップ1: スタッフを選択
+  // const handleSelectStaff = (staffId: number) => {
+  //   setSelectedStaffId(staffId)
+  //   setSelectedSlotNumbers([])
+  //   setShowStaffModal(false)
+  //   setShowSlotModal(true)
+  // }
+
+  // // 枠の選択/選択解除をトグル
+  // const handleToggleSlotSelection = (slotNumber: number) => {
+  //   setSelectedSlotNumbers(prev => {
+  //     if (prev.includes(slotNumber)) {
+  //       return prev.filter(n => n !== slotNumber)
+  //     } else {
+  //       return [...prev, slotNumber]
+  //     }
+  //   })
+  // }
+
+  // // ステップ2: 選択した枠にオファー送信
+  // const handleSendOfferWithSlots = async () => {
+  //   if (!reservation || !user?.id || !selectedStaffId || selectedSlotNumbers.length === 0) return
+
+  //   const slotText = selectedSlotNumbers.length === 1
+  //     ? `枠${selectedSlotNumbers[0]}`
+  //     : `${selectedSlotNumbers.length}個の枠（${selectedSlotNumbers.sort((a, b) => a - b).join(', ')}）`
+
+  //   if (!confirm(`${slotText}にオファーを送信しますか？`)) return
+
+  //   try {
+  //     setSendingOffer(true)
+  //     let successCount = 0
+  //     let failCount = 0
+
+  //     // 各枠に順次オファーを送信
+  //     for (const slotNumber of selectedSlotNumbers) {
+  //       try {
+  //         await assignmentsApi.assignStaff({
+  //           reservation_id: reservation.id,
+  //           staff_id: selectedStaffId,
+  //           assigned_by: user.id,
+  //           slot_number: slotNumber,
+  //           notes: `枠${slotNumber}へのオファー`
+  //         })
+  //         successCount++
+  //       } catch (err) {
+  //         console.error(`枠${slotNumber}へのオファー送信失敗:`, err)
+  //         failCount++
+  //       }
+  //     }
+
+  //     // アサイン情報を再取得
+  //     const updatedAssignments = await assignmentsApi.getReservationAssignments(reservationId)
+  //     setAssignments(updatedAssignments)
+
+  //     // 結果を表示
+  //     if (failCount === 0) {
+  //       alert(`${successCount}個の枠にオファーを送信しました`)
+  //     } else {
+  //       alert(`${successCount}個成功、${failCount}個失敗しました`)
+  //     }
+
+  //     setShowSlotModal(false)
+  //     setSelectedStaffId(null)
+  //     setSelectedSlotNumbers([])
+  //   } catch (err) {
+  //     alert('オファー送信に失敗しました: ' + (err instanceof Error ? err.message : ''))
+  //   } finally {
+  //     setSendingOffer(false)
+  //   }
+  // }
+
+  // // 枠がオファー送信可能かチェック
+  // const isSlotAvailableForOffer = (slotNumber: number): boolean => {
+  //   // この枠にpendingまたはconfirmedのオファーが存在するかチェック
+  //   const existingOffer = assignments.find(a =>
+  //     a.slot_number === slotNumber &&
+  //     (a.status === 'pending' || a.status === 'confirmed')
+  //   )
+  //   return !existingOffer
+  // }
+  // ========== 旧コード ここまで ==========
+
+  // ========== 新：時間帯でまとめてオファー送信 ==========
   // ステップ1: スタッフを選択
   const handleSelectStaff = (staffId: number) => {
     setSelectedStaffId(staffId)
-    setSelectedSlotNumbers([])
+    setSelectedTimeRange(null)
     setShowStaffModal(false)
-    setShowSlotModal(true)
+    setShowTimeRangeModal(true)
   }
 
-  // 枠の選択/選択解除をトグル
-  const handleToggleSlotSelection = (slotNumber: number) => {
-    setSelectedSlotNumbers(prev => {
-      if (prev.includes(slotNumber)) {
-        return prev.filter(n => n !== slotNumber)
-      } else {
-        return [...prev, slotNumber]
-      }
-    })
+  // 時間帯を選択
+  const handleSelectTimeRange = (startTime: string, endTime: string) => {
+    setSelectedTimeRange({ start_time: startTime, end_time: endTime })
   }
 
-  // ステップ2: 選択した枠にオファー送信
-  const handleSendOfferWithSlots = async () => {
-    if (!reservation || !user?.id || !selectedStaffId || selectedSlotNumbers.length === 0) return
+  // ステップ2: 選択した時間帯でオファー送信（枠の概念なし、時間帯全体で1つのオファー）
+  const handleSendOfferWithTimeRange = async () => {
+    if (!reservation || !user?.id || !selectedStaffId || !selectedTimeRange) return
 
-    const slotText = selectedSlotNumbers.length === 1
-      ? `枠${selectedSlotNumbers[0]}`
-      : `${selectedSlotNumbers.length}個の枠（${selectedSlotNumbers.sort((a, b) => a - b).join(', ')}）`
+    const timeRangeText = `${selectedTimeRange.start_time} ～ ${selectedTimeRange.end_time}`
 
-    if (!confirm(`${slotText}にオファーを送信しますか？`)) return
+    if (!confirm(`${timeRangeText} の時間帯でオファーを送信しますか？`)) return
 
     try {
       setSendingOffer(true)
-      let successCount = 0
-      let failCount = 0
 
-      // 各枠に順次オファーを送信
-      for (const slotNumber of selectedSlotNumbers) {
-        try {
-          await assignmentsApi.assignStaff({
-            reservation_id: reservation.id,
-            staff_id: selectedStaffId,
-            assigned_by: user.id,
-            slot_number: slotNumber,
-            notes: `枠${slotNumber}へのオファー`
-          })
-          successCount++
-        } catch (err) {
-          console.error(`枠${slotNumber}へのオファー送信失敗:`, err)
-          failCount++
-        }
-      }
+      // 時間帯全体で1つのオファーを送信（slot_numberは不要）
+      await assignmentsApi.assignStaff({
+        reservation_id: reservation.id,
+        staff_id: selectedStaffId,
+        assigned_by: user.id,
+        slot_number: null,  // 枠番号なし
+        notes: `${timeRangeText} の業務オファー`
+      })
 
       // アサイン情報を再取得
       const updatedAssignments = await assignmentsApi.getReservationAssignments(reservationId)
       setAssignments(updatedAssignments)
 
-      // 結果を表示
-      if (failCount === 0) {
-        alert(`${successCount}個の枠にオファーを送信しました`)
-      } else {
-        alert(`${successCount}個成功、${failCount}個失敗しました`)
-      }
+      alert(`オファーを送信しました`)
 
-      setShowSlotModal(false)
+      setShowTimeRangeModal(false)
       setSelectedStaffId(null)
-      setSelectedSlotNumbers([])
+      setSelectedTimeRange(null)
     } catch (err) {
       alert('オファー送信に失敗しました: ' + (err instanceof Error ? err.message : ''))
     } finally {
       setSendingOffer(false)
     }
   }
-
-  // 枠がオファー送信可能かチェック
-  const isSlotAvailableForOffer = (slotNumber: number): boolean => {
-    // この枠にpendingまたはconfirmedのオファーが存在するかチェック
-    const existingOffer = assignments.find(a =>
-      a.slot_number === slotNumber &&
-      (a.status === 'pending' || a.status === 'confirmed')
-    )
-    return !existingOffer
-  }
+  // ========== 新コード ここまで ==========
 
   // アサイン承認（スタッフがYESと回答した後、管理者が最終確定）
   const handleConfirmAssignment = async (assignmentId: number) => {
@@ -555,7 +621,22 @@ export default function AdminReservationDetailPage() {
                   slots={timeSlots}
                   hourlyRate={reservation.hourly_rate}
                   readOnly={true}
-                  hideEmployeeInfo={true}
+                  hideEmployeeInfo={false}
+                  showInfoButton={true}
+                  hideEarnings={true}
+                  onShowEmployeeInfo={async (employeeId) => {
+                    try {
+                      const employee = await employeesApi.getById(employeeId)
+                      setSelectedEmployee(employee)
+                      setEditingEmployee({
+                        concerns: employee.concerns || '',
+                        medical_record: employee.medical_record || ''
+                      })
+                      setShowEmployeeModal(true)
+                    } catch (err) {
+                      alert('社員情報の取得に失敗しました: ' + (err instanceof Error ? err.message : ''))
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -654,8 +735,8 @@ export default function AdminReservationDetailPage() {
         </div>
       )}
 
-      {/* ステップ2: 枠選択モーダル */}
-      {showSlotModal && selectedStaffId && (
+      {/* ========== 旧：ステップ2 枠選択モーダル（コメントアウト） ========== */}
+      {/* {showSlotModal && selectedStaffId && (
         <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content">
@@ -790,6 +871,260 @@ export default function AdminReservationDetailPage() {
                       選択した枠にオファー送信 ({selectedSlotNumbers.length}個)
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )} */}
+      {/* ========== 旧UIコード ここまで ========== */}
+
+      {/* ========== 新：ステップ2 時間帯選択モーダル ========== */}
+      {showTimeRangeModal && selectedStaffId && reservation && (
+        <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="bi bi-clock me-2"></i>
+                  ステップ2: 依頼時間帯を選択
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setShowTimeRangeModal(false)
+                    setSelectedStaffId(null)
+                    setSelectedTimeRange(null)
+                  }}
+                  disabled={sendingOffer}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="alert alert-info mb-4">
+                  <i className="bi bi-info-circle me-2"></i>
+                  <strong>{allStaff.find(s => s.id === selectedStaffId)?.name}</strong> に依頼する時間帯を選択してください
+                </div>
+
+                <div className="row g-3">
+                  <div className="col-12">
+                    <label className="form-label fw-bold">予約情報</label>
+                    <div className="card bg-light">
+                      <div className="card-body">
+                        <div className="row">
+                          <div className="col-6">
+                            <small className="text-muted">日付</small>
+                            <div className="fw-bold">{reservation.reservation_date}</div>
+                          </div>
+                          <div className="col-6">
+                            <small className="text-muted">時間</small>
+                            <div className="fw-bold">{reservation.start_time} ～ {reservation.end_time}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <label htmlFor="start_time" className="form-label">
+                      開始時刻 <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      id="start_time"
+                      className="form-control"
+                      value={selectedTimeRange?.start_time || reservation.start_time}
+                      onChange={(e) => {
+                        setSelectedTimeRange({
+                          start_time: e.target.value,
+                          end_time: selectedTimeRange?.end_time || reservation.end_time
+                        })
+                      }}
+                      disabled={sendingOffer}
+                    />
+                    <small className="text-muted">デフォルト: {reservation.start_time}</small>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <label htmlFor="end_time" className="form-label">
+                      終了時刻 <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      id="end_time"
+                      className="form-control"
+                      value={selectedTimeRange?.end_time || reservation.end_time}
+                      onChange={(e) => {
+                        setSelectedTimeRange({
+                          start_time: selectedTimeRange?.start_time || reservation.start_time,
+                          end_time: e.target.value
+                        })
+                      }}
+                      disabled={sendingOffer}
+                    />
+                    <small className="text-muted">デフォルト: {reservation.end_time}</small>
+                  </div>
+
+                  <div className="col-12">
+                    <div className="alert alert-warning">
+                      <i className="bi bi-exclamation-triangle me-2"></i>
+                      この時間帯全体でまとめてオファーを送信します（枠単位での依頼ではありません）
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowTimeRangeModal(false)
+                    setSelectedTimeRange(null)
+                    setShowStaffModal(true)
+                  }}
+                  disabled={sendingOffer}
+                >
+                  <i className="bi bi-arrow-left me-2"></i>
+                  戻る
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => {
+                    setShowTimeRangeModal(false)
+                    setSelectedStaffId(null)
+                    setSelectedTimeRange(null)
+                  }}
+                  disabled={sendingOffer}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSendOfferWithTimeRange}
+                  disabled={sendingOffer || !selectedTimeRange}
+                >
+                  {sendingOffer ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      送信中...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-send me-2"></i>
+                      オファー送信
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========== 新UIコード ここまで ========== */}
+
+      {/* 社員情報モーダル */}
+      {showEmployeeModal && selectedEmployee && (
+        <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">報告</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setShowEmployeeModal(false)
+                    setSelectedEmployee(null)
+                    setEditingEmployee({})
+                  }}
+                  disabled={savingEmployee}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="row g-3 mb-3">
+                  <div className="col-12">
+                    <label className="form-label">お名前</label>
+                    <div className="form-control-plaintext">{selectedEmployee.name}</div>
+                  </div>
+                  <div className="col-6">
+                    <label className="form-label">性別</label>
+                    <div className="form-control-plaintext">
+                      {selectedEmployee.position || '-'}
+                    </div>
+                  </div>
+                  <div className="col-6">
+                    <label className="form-label">年齢</label>
+                    <div className="form-control-plaintext">-</div>
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <label className="form-label">お悩みなど</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={editingEmployee.concerns || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, concerns: e.target.value })}
+                    placeholder="記入があった場合表示されます"
+                    disabled={savingEmployee}
+                  ></textarea>
+                </div>
+                
+                <div className="mb-3">
+                  <label className="form-label">カルテ</label>
+                  <textarea
+                    className="form-control"
+                    rows={5}
+                    value={editingEmployee.medical_record || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, medical_record: e.target.value })}
+                    placeholder="共有項目として、スタッフ間&オリエンタルシナジーで自由記入するスペース。社員の注意事項や引き継ぎ事項を記入"
+                    disabled={savingEmployee}
+                  ></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowEmployeeModal(false)
+                    setSelectedEmployee(null)
+                    setEditingEmployee({})
+                  }}
+                  disabled={savingEmployee}
+                >
+                  閉じる
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    if (!selectedEmployee) return
+                    try {
+                      setSavingEmployee(true)
+                      await employeesApi.update(selectedEmployee.id, {
+                        concerns: editingEmployee.concerns,
+                        medical_record: editingEmployee.medical_record
+                      })
+                      alert('社員情報を更新しました')
+                      // 社員情報を再取得
+                      const updated = await employeesApi.getById(selectedEmployee.id)
+                      setSelectedEmployee(updated)
+                      setEditingEmployee({
+                        concerns: updated.concerns || '',
+                        medical_record: updated.medical_record || ''
+                      })
+                    } catch (err) {
+                      alert('更新に失敗しました: ' + (err instanceof Error ? err.message : ''))
+                    } finally {
+                      setSavingEmployee(false)
+                    }
+                  }}
+                  disabled={savingEmployee}
+                >
+                  {savingEmployee ? '保存中...' : '保存'}
                 </button>
               </div>
             </div>

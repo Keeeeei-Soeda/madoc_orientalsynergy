@@ -76,3 +76,5 @@ echo "4. 環境変数を編集: nano .env.production"
 echo "5. デプロイを実行: ./deploy.sh"
 
 
+
+

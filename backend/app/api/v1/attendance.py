@@ -188,6 +188,9 @@ def complete_report(
     current_user: User = Depends(get_staff_user)
 ):
     """完了報告"""
+    from ...models.employee import Employee as EmployeeModel
+    from ...models.reservation_staff import ReservationStaff
+    
     # 勤怠レコードを取得
     attendance = db.query(AttendanceModel).filter(
         AttendanceModel.id == request.attendance_id
@@ -200,6 +203,43 @@ def complete_report(
     attendance.completion_photos = request.photos
     attendance.completed_at = datetime.now()
     attendance.status = AttendanceStatus.COMPLETED
+    
+    # 特記事項を社員のconcernsとmedical_recordに反映
+    if attendance.assignment_id and request.report:
+        # アサイン情報から予約とスロット番号を取得
+        assignment = db.query(ReservationStaff).filter(
+            ReservationStaff.id == attendance.assignment_id
+        ).first()
+        
+        if assignment and assignment.reservation_id:
+            reservation = db.query(ReservationModel).filter(
+                ReservationModel.id == assignment.reservation_id
+            ).first()
+            
+            if reservation and reservation.time_slots and assignment.slot_number:
+                # time_slotsから該当スロットの社員IDを取得
+                time_slots = reservation.time_slots if isinstance(reservation.time_slots, list) else []
+                target_slot = next((slot for slot in time_slots if slot.get('slot') == assignment.slot_number), None)
+                
+                if target_slot and target_slot.get('employee_id'):
+                    employee_id = target_slot.get('employee_id')
+                    employee = db.query(EmployeeModel).filter(EmployeeModel.id == employee_id).first()
+                    
+                    if employee:
+                        # 特記事項をconcernsとmedical_recordに反映（既存の内容に追記）
+                        report_text = request.report.strip()
+                        if report_text:
+                            # concernsに追記（既存があれば改行で追加）
+                            if employee.concerns:
+                                employee.concerns = f"{employee.concerns}\n\n{report_text}"
+                            else:
+                                employee.concerns = report_text
+                            
+                            # medical_recordにも同じ内容を追記
+                            if employee.medical_record:
+                                employee.medical_record = f"{employee.medical_record}\n\n{report_text}"
+                            else:
+                                employee.medical_record = report_text
     
     db.commit()
     db.refresh(attendance)

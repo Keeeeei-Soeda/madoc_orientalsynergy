@@ -3,8 +3,10 @@ FastAPI アプリケーション本体
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from .config import settings
-from .api.v1 import auth, users, companies, staff, employees, reservations, attendance, ratings, assignments
+from .api.v1 import auth, users, companies, staff, employees, reservations, attendance, ratings, assignments, upload
+import os
 
 # FastAPIアプリケーションの作成
 app = FastAPI(
@@ -53,6 +55,13 @@ app.include_router(reservations.router, prefix="/api/v1", tags=["Reservations"])
 app.include_router(attendance.router, prefix="/api/v1", tags=["Attendance"])
 app.include_router(ratings.router, prefix="/api/v1", tags=["Ratings"])
 app.include_router(assignments.router, prefix="/api/v1", tags=["Assignments"])
+app.include_router(upload.router, prefix="/api/v1", tags=["Upload"])
+
+
+# 静的ファイルの配信設定（アップロードされた画像）
+UPLOAD_DIR = "./uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 # 起動時の処理

@@ -9,6 +9,7 @@ interface TimeSlotEditorProps {
   initialServiceDuration?: number;
   initialBreakDuration?: number;
   initialHourlyRate?: number;
+  hideEarnings?: boolean; // 金額・時給を非表示にする
   onDataChange: (data: {
     serviceDuration: number;
     breakDuration: number;
@@ -25,6 +26,7 @@ export default function TimeSlotEditor({
   initialServiceDuration = 30,
   initialBreakDuration = 10,
   initialHourlyRate = 1500,
+  hideEarnings = false,
   onDataChange,
 }: TimeSlotEditorProps) {
   const [serviceDuration, setServiceDuration] = useState<number>(initialServiceDuration);
@@ -127,23 +129,25 @@ export default function TimeSlotEditor({
               <small className="text-muted">各枠の間の休憩時間</small>
             </div>
 
-            <div className="col-md-4">
-              <label htmlFor="hourlyRate" className="form-label fw-bold">
-                <i className="bi bi-currency-yen me-1"></i>
-                時給（円）<span className="text-danger">*</span>
-              </label>
-              <input
-                type="number"
-                id="hourlyRate"
-                className="form-control"
-                min="0"
-                step="100"
-                value={hourlyRate}
-                onChange={handleHourlyRateChange}
-                placeholder="例: 1500"
-              />
-              <small className="text-muted">スタッフへの報酬</small>
-            </div>
+            {!hideEarnings && (
+              <div className="col-md-4">
+                <label htmlFor="hourlyRate" className="form-label fw-bold">
+                  <i className="bi bi-currency-yen me-1"></i>
+                  時給（円）<span className="text-danger">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="hourlyRate"
+                  className="form-control"
+                  min="0"
+                  step="100"
+                  value={hourlyRate}
+                  onChange={handleHourlyRateChange}
+                  placeholder="例: 1500"
+                />
+                <small className="text-muted">スタッフへの報酬</small>
+              </div>
+            )}
           </div>
 
           {/* バリデーション結果の表示 */}
@@ -230,14 +234,16 @@ export default function TimeSlotEditor({
                             </div>
                           </div>
                         </div>
-                        <div className="col-md-3">
-                          <div className="p-2 bg-white rounded text-center">
-                            <small className="text-muted d-block">総報酬</small>
-                            <div className="fs-6 fw-bold text-success">
-                              {validation.totalEarnings ? formatCurrency(validation.totalEarnings) : '-'}
+                        {!hideEarnings && (
+                          <div className="col-md-3">
+                            <div className="p-2 bg-white rounded text-center">
+                              <small className="text-muted d-block">総報酬</small>
+                              <div className="fs-6 fw-bold text-success">
+                                {validation.totalEarnings ? formatCurrency(validation.totalEarnings) : '-'}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* 各枠の詳細 */}
@@ -257,7 +263,7 @@ export default function TimeSlotEditor({
                                 <div className="mt-1 fw-bold">
                                   {slot.start_time} 〜 {slot.end_time}
                                 </div>
-                                {hourlyRate > 0 && (
+                                {!hideEarnings && hourlyRate > 0 && (
                                   <div className="mt-1">
                                     <small className="text-success">
                                       <i className="bi bi-currency-yen"></i>

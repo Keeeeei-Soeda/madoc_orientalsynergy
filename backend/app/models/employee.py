@@ -22,6 +22,8 @@ class Employee(Base):
     line_linked = Column(Boolean, default=False)  # LINE連携状態
     is_active = Column(Boolean, default=True)
     notes = Column(Text)
+    concerns = Column(Text)  # お悩みなど（スタッフからの報告で更新）
+    medical_record = Column(Text)  # カルテ（スタッフからの報告で更新、オリエンタルシナジー側で編集可能）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

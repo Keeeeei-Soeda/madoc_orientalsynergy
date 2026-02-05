@@ -331,6 +331,7 @@ export default function NewReservationPage() {
                   initialServiceDuration={formData.service_duration}
                   initialBreakDuration={formData.break_duration}
                   initialHourlyRate={formData.hourly_rate}
+                  hideEarnings={true}
                   onDataChange={handleTimeSlotDataChange}
                 />
               </div>

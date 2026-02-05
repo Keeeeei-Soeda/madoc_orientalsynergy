@@ -240,7 +240,26 @@ export default function StaffSearchPage() {
                     ) : (
                       searchResults.map((staff) => (
                         <tr key={staff.id}>
-                          <td className="fw-bold">{staff.name}</td>
+                          <td>
+                            <div className="d-flex align-items-center">
+                              {staff.profile_photo ? (
+                                <img
+                                  src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8000'}${staff.profile_photo}`}
+                                  alt={staff.name}
+                                  className="rounded-circle me-2"
+                                  style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <div 
+                                  className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-2"
+                                  style={{ width: '40px', height: '40px' }}
+                                >
+                                  <i className="bi bi-person"></i>
+                                </div>
+                              )}
+                              <span className="fw-bold">{staff.name}</span>
+                            </div>
+                          </td>
                           <td>{staff.phone || '-'}</td>
                           <td>
                             {staff.rating ? (

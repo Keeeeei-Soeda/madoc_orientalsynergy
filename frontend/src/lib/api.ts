@@ -250,6 +250,7 @@ export interface Staff {
   qualifications: string;
   available_days: string;
   line_id?: string;
+  profile_photo?: string;  // プロフィール写真URL
   is_available: boolean;
   rating: number;
   notes?: string;
@@ -318,6 +319,42 @@ export const staffApi = {
 };
 
 // ========================================
+// アップロードAPI
+// ========================================
+
+export interface UploadResponse {
+  success: boolean;
+  file_url: string;
+  filename: string;
+}
+
+export const uploadApi = {
+  uploadProfilePhoto: async (file: File): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/upload/profile-photo`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'アップロードに失敗しました');
+    }
+    
+    return response.json();
+  },
+  deleteProfilePhoto: (fileUrl: string) =>
+    request<{ success: boolean; message: string }>(`/upload/profile-photo?file_url=${encodeURIComponent(fileUrl)}`, {
+      method: 'DELETE',
+    }),
+};
+
+// ========================================
 // 社員API（企業の従業員）
 // ========================================
 
@@ -333,6 +370,8 @@ export interface Employee {
   line_linked: boolean;
   is_active: boolean;
   notes?: string;
+  concerns?: string;  // お悩みなど（企業側には見えない）
+  medical_record?: string;  // カルテ（企業側には見えない）
   created_at: string;
   updated_at: string;
 }
@@ -348,6 +387,8 @@ export interface EmployeeCreate {
   line_linked?: boolean;
   is_active?: boolean;
   notes?: string;
+  concerns?: string;
+  medical_record?: string;
 }
 
 export const employeesApi = {

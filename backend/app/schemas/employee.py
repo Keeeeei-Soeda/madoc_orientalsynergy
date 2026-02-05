@@ -17,6 +17,8 @@ class EmployeeBase(BaseModel):
     line_linked: bool = False
     is_active: bool = True
     notes: Optional[str] = None
+    concerns: Optional[str] = None  # お悩みなど（企業側には見えない）
+    medical_record: Optional[str] = None  # カルテ（企業側には見えない）
 
 
 class EmployeeCreate(EmployeeBase):
@@ -35,6 +37,8 @@ class EmployeeUpdate(BaseModel):
     line_linked: Optional[bool] = None
     is_active: Optional[bool] = None
     notes: Optional[str] = None
+    concerns: Optional[str] = None  # お悩みなど（管理者のみ編集可能）
+    medical_record: Optional[str] = None  # カルテ（管理者のみ編集可能）
 
 
 class Employee(EmployeeBase):

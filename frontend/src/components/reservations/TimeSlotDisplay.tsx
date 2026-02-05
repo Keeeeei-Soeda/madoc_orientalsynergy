@@ -19,8 +19,11 @@ interface TimeSlotDisplayProps {
   hourlyRate?: number;
   onAssignEmployee?: (slotNumber: number) => void;
   onUnassignEmployee?: (slotNumber: number) => void;
+  onShowEmployeeInfo?: (employeeId: number) => void; // 社員情報表示コールバック
   readOnly?: boolean;
   hideEmployeeInfo?: boolean; // スタッフ側で従業員情報を非表示にする
+  showInfoButton?: boolean; // 情報ボタンを表示するか（管理者側のみ）
+  hideEarnings?: boolean; // 金額・時給を非表示にする
 }
 
 export default function TimeSlotDisplay({
@@ -28,8 +31,11 @@ export default function TimeSlotDisplay({
   hourlyRate,
   onAssignEmployee,
   onUnassignEmployee,
+  onShowEmployeeInfo,
   readOnly = false,
-  hideEmployeeInfo = false
+  hideEmployeeInfo = false,
+  showInfoButton = false,
+  hideEarnings = false
 }: TimeSlotDisplayProps) {
   if (!slots || slots.length === 0) {
     return (
@@ -77,7 +83,7 @@ export default function TimeSlotDisplay({
                 </div>
 
                 {/* 時給情報 */}
-                {hourlyRate && hourlyRate > 0 && (
+                {!hideEarnings && hourlyRate && hourlyRate > 0 && (
                   <div className="mb-3">
                     <div className="d-flex align-items-center gap-2">
                       <i className="bi bi-currency-yen text-success"></i>
@@ -96,7 +102,18 @@ export default function TimeSlotDisplay({
                       <div className="alert alert-success mb-0 p-2">
                         <div className="d-flex align-items-start justify-content-between">
                           <div className="flex-grow-1">
-                            <div className="fw-bold">{slot.employee_name}</div>
+                            <div className="d-flex align-items-center gap-2 mb-1">
+                              <div className="fw-bold">{slot.employee_name}</div>
+                              {showInfoButton && slot.employee_id && onShowEmployeeInfo && (
+                                <button
+                                  onClick={() => onShowEmployeeInfo(slot.employee_id!)}
+                                  className="btn btn-sm btn-primary"
+                                  title="社員情報"
+                                >
+                                  情報
+                                </button>
+                              )}
+                            </div>
                             {slot.employee_department && (
                               <small className="text-muted">{slot.employee_department}</small>
                             )}

@@ -379,6 +379,7 @@ export default function CompanyReservationDetailPage() {
                   slots={timeSlots}
                   onAssignEmployee={handleAssignEmployee}
                   onUnassignEmployee={handleUnassignEmployee}
+                  hideEarnings={true}
                 />
               ) : (
                 <div className="alert alert-info">

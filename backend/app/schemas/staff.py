@@ -34,6 +34,7 @@ class StaffUpdate(BaseModel):
     qualifications: Optional[str] = None
     available_days: Optional[str] = None
     line_id: Optional[str] = None
+    profile_photo: Optional[str] = None  # プロフィール写真URL
     is_available: Optional[bool] = None
     rating: Optional[int] = None
     notes: Optional[str] = None
